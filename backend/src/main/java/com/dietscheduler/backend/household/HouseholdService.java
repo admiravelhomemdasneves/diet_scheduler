@@ -3,6 +3,7 @@ package com.dietscheduler.backend.household;
 import com.dietscheduler.backend.common.ConflictException;
 import com.dietscheduler.backend.common.ForbiddenException;
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.common.RepositoryUtils;
 import com.dietscheduler.backend.household.dto.HouseholdResponse;
 import com.dietscheduler.backend.household.dto.MemberResponse;
 import com.dietscheduler.backend.mealplan.MealPlan;
@@ -17,7 +18,6 @@ import com.dietscheduler.backend.shoppinglist.ShoppingListItemRepository;
 import com.dietscheduler.backend.user.User;
 import com.dietscheduler.backend.user.UserRepository;
 import com.dietscheduler.backend.ws.HouseholdSocketRegistry;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +25,6 @@ import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class HouseholdService {
@@ -46,7 +45,6 @@ public class HouseholdService {
     private final ShoppingListItemRepository shoppingListItemRepository;
     private final IgnoredMissingIngredientRepository ignoredMissingIngredientRepository;
     private final HouseholdSocketRegistry socketRegistry;
-    private final ObjectMapper objectMapper;
 
     public HouseholdService(HouseholdRepository householdRepository, HouseholdMemberRepository householdMemberRepository,
                              UserRepository userRepository, HouseholdAllergyRepository householdAllergyRepository,
@@ -54,7 +52,7 @@ public class HouseholdService {
                              IngredientRepository ingredientRepository, MealPlanRepository mealPlanRepository,
                              MealPlanPortionRepository mealPlanPortionRepository, ShoppingListItemRepository shoppingListItemRepository,
                              IgnoredMissingIngredientRepository ignoredMissingIngredientRepository,
-                             HouseholdSocketRegistry socketRegistry, ObjectMapper objectMapper) {
+                             HouseholdSocketRegistry socketRegistry) {
         this.householdRepository = householdRepository;
         this.householdMemberRepository = householdMemberRepository;
         this.userRepository = userRepository;
@@ -67,7 +65,6 @@ public class HouseholdService {
         this.shoppingListItemRepository = shoppingListItemRepository;
         this.ignoredMissingIngredientRepository = ignoredMissingIngredientRepository;
         this.socketRegistry = socketRegistry;
-        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -103,7 +100,9 @@ public class HouseholdService {
                 .orElseThrow(() -> new NotFoundException("Household not found"));
     }
 
-    public List<HouseholdMember> getMembers(UUID householdId) {
+    // Package-private: only used internally (see leaveHousehold below); no caller outside this
+    // class or package needs the raw membership list today.
+    List<HouseholdMember> getMembers(UUID householdId) {
         return householdMemberRepository.findByHouseholdId(householdId);
     }
 
@@ -117,8 +116,8 @@ public class HouseholdService {
 
     public HouseholdResponse toResponse(Household household) {
         List<HouseholdMember> members = getMembers(household.getId());
-        Map<UUID, User> usersById = userRepository.findAllById(members.stream().map(HouseholdMember::getUserId).toList())
-                .stream().collect(Collectors.toMap(User::getId, u -> u));
+        Map<UUID, User> usersById = RepositoryUtils.findAllByIdAsMap(userRepository,
+                members.stream().map(HouseholdMember::getUserId).toList(), User::getId);
 
         List<MemberResponse> memberResponses = members.stream()
                 .map(m -> {
@@ -244,9 +243,8 @@ public class HouseholdService {
 
     private void broadcastDeleted(UUID householdId) {
         try {
-            String json = objectMapper.writeValueAsString(
+            socketRegistry.broadcastEvent(householdId,
                     new HouseholdDeletedEvent(HouseholdDeletedEvent.Type.HOUSEHOLD_DELETED, householdId));
-            socketRegistry.broadcast(householdId, json);
         } catch (Exception e) {
             // Best-effort notification; the household is deleted either way.
         }

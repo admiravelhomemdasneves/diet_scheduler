@@ -8,7 +8,6 @@ import java.util.UUID;
 
 public interface ShoppingListItemRepository extends JpaRepository<ShoppingListItem, UUID> {
     List<ShoppingListItem> findByHouseholdId(UUID householdId);
-    List<ShoppingListItem> findByHouseholdIdAndSource(UUID householdId, ShoppingListSource source);
     Optional<ShoppingListItem> findByHouseholdIdAndIngredientIdAndUnitAndSource(
             UUID householdId, UUID ingredientId, String unit, ShoppingListSource source);
     void deleteByHouseholdIdAndSource(UUID householdId, ShoppingListSource source);

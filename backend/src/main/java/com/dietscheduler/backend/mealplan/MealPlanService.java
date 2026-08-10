@@ -4,6 +4,7 @@ import com.dietscheduler.backend.common.ConflictException;
 import com.dietscheduler.backend.common.DateRangeValidation;
 import com.dietscheduler.backend.common.ForbiddenException;
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.common.RepositoryUtils;
 import com.dietscheduler.backend.config.LimitsProperties;
 import com.dietscheduler.backend.household.HouseholdMember;
 import com.dietscheduler.backend.household.HouseholdMemberRepository;
@@ -28,8 +29,6 @@ import com.dietscheduler.backend.recipe.dto.RecipeResponse;
 import com.dietscheduler.backend.user.User;
 import com.dietscheduler.backend.user.UserRepository;
 import com.dietscheduler.backend.ws.HouseholdSocketRegistry;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,7 +53,6 @@ public class MealPlanService {
     private final PantryService pantryService;
     private final RecipeService recipeService;
     private final HouseholdSocketRegistry socketRegistry;
-    private final ObjectMapper objectMapper;
     private final LimitsProperties limits;
 
     public MealPlanService(MealPlanRepository mealPlanRepository, MealPlanPortionRepository mealPlanPortionRepository,
@@ -63,7 +61,7 @@ public class MealPlanService {
                             UserRepository userRepository, HouseholdService householdService,
                             PantryItemRepository pantryItemRepository, PantryService pantryService,
                             RecipeService recipeService,
-                            HouseholdSocketRegistry socketRegistry, ObjectMapper objectMapper, LimitsProperties limits) {
+                            HouseholdSocketRegistry socketRegistry, LimitsProperties limits) {
         this.mealPlanRepository = mealPlanRepository;
         this.mealPlanPortionRepository = mealPlanPortionRepository;
         this.recipeRepository = recipeRepository;
@@ -75,7 +73,6 @@ public class MealPlanService {
         this.pantryService = pantryService;
         this.recipeService = recipeService;
         this.socketRegistry = socketRegistry;
-        this.objectMapper = objectMapper;
         this.limits = limits;
     }
 
@@ -90,12 +87,11 @@ public class MealPlanService {
         List<UUID> mealPlanIds = mealPlans.stream().map(MealPlan::getId).toList();
         Map<UUID, List<MealPlanPortion>> portionsByMealPlan = mealPlanPortionRepository.findByMealPlanIdIn(mealPlanIds)
                 .stream().collect(Collectors.groupingBy(MealPlanPortion::getMealPlanId));
-        Map<UUID, Recipe> recipesById = recipeRepository.findAllById(
-                        mealPlans.stream().map(MealPlan::getRecipeId).distinct().toList())
-                .stream().collect(Collectors.toMap(Recipe::getId, r -> r));
-        Map<UUID, User> usersById = userRepository.findAllById(
-                        portionsByMealPlan.values().stream().flatMap(List::stream).map(MealPlanPortion::getUserId).distinct().toList())
-                .stream().collect(Collectors.toMap(User::getId, u -> u));
+        Map<UUID, Recipe> recipesById = RepositoryUtils.findAllByIdAsMap(recipeRepository,
+                mealPlans.stream().map(MealPlan::getRecipeId).distinct().toList(), Recipe::getId);
+        Map<UUID, User> usersById = RepositoryUtils.findAllByIdAsMap(userRepository,
+                portionsByMealPlan.values().stream().flatMap(List::stream).map(MealPlanPortion::getUserId).distinct().toList(),
+                User::getId);
 
         return mealPlans.stream()
                 .map(mp -> toResponse(mp, recipesById.get(mp.getRecipeId()),
@@ -148,8 +144,8 @@ public class MealPlanService {
                         .build()))
                 .toList();
 
-        Map<UUID, User> usersById = userRepository.findAllById(portions.stream().map(MealPlanPortion::getUserId).distinct().toList())
-                .stream().collect(Collectors.toMap(User::getId, u -> u));
+        Map<UUID, User> usersById = RepositoryUtils.findAllByIdAsMap(userRepository,
+                portions.stream().map(MealPlanPortion::getUserId).distinct().toList(), User::getId);
 
         MealPlanResponse response = toResponse(mealPlan, recipe, portions, usersById);
         broadcast(householdId, MealPlanEvent.Type.MEAL_PLAN_CREATED, response);
@@ -251,12 +247,11 @@ public class MealPlanService {
         List<UUID> ids = existing.stream().map(MealPlan::getId).toList();
         Map<UUID, List<MealPlanPortion>> portionsByMealPlan = mealPlanPortionRepository.findByMealPlanIdIn(ids)
                 .stream().collect(Collectors.groupingBy(MealPlanPortion::getMealPlanId));
-        Map<UUID, Recipe> recipesById = recipeRepository.findAllById(
-                        existing.stream().map(MealPlan::getRecipeId).distinct().toList())
-                .stream().collect(Collectors.toMap(Recipe::getId, r -> r));
-        Map<UUID, User> usersById = userRepository.findAllById(
-                        portionsByMealPlan.values().stream().flatMap(List::stream).map(MealPlanPortion::getUserId).distinct().toList())
-                .stream().collect(Collectors.toMap(User::getId, u -> u));
+        Map<UUID, Recipe> recipesById = RepositoryUtils.findAllByIdAsMap(recipeRepository,
+                existing.stream().map(MealPlan::getRecipeId).distinct().toList(), Recipe::getId);
+        Map<UUID, User> usersById = RepositoryUtils.findAllByIdAsMap(userRepository,
+                portionsByMealPlan.values().stream().flatMap(List::stream).map(MealPlanPortion::getUserId).distinct().toList(),
+                User::getId);
 
         for (MealPlan mp : existing) {
             MealPlanResponse response = toResponse(mp, recipesById.get(mp.getRecipeId()),
@@ -358,13 +353,7 @@ public class MealPlanService {
     private RecipeResponse pickRecipeForNutrition(List<RecipeResponse> pool, Map<UUID, LocalDate> lastUsed, LocalDate date,
                                                    int avoidRepeatDays, Map<UUID, User> targetedUsers,
                                                    Map<UUID, double[]> consumedToday) {
-        List<RecipeResponse> eligible = pool.stream()
-                .filter(c -> {
-                    LocalDate last = lastUsed.get(c.id());
-                    return last == null || Math.abs(ChronoUnit.DAYS.between(last, date)) >= avoidRepeatDays;
-                })
-                .toList();
-        List<RecipeResponse> candidates = eligible.isEmpty() ? pool : eligible;
+        List<RecipeResponse> candidates = rotationEligibleCandidates(pool, lastUsed, date, avoidRepeatDays);
 
         RecipeResponse best = null;
         double bestScore = Double.MAX_VALUE;
@@ -399,6 +388,24 @@ public class MealPlanService {
     }
 
     /**
+     * Pool entries whose last use is outside the avoidRepeatDays cooldown (falling back to the
+     * whole pool if that leaves nothing) -- was duplicated identically between pickRecipe and
+     * pickRecipeForNutrition, which meant the future-date-pollution fix documented on pickRecipe
+     * had to be applied to both call sites by hand. See that doc comment for why distance is
+     * absolute day-count, not raw chronological order.
+     */
+    private List<RecipeResponse> rotationEligibleCandidates(List<RecipeResponse> pool, Map<UUID, LocalDate> lastUsed,
+                                                              LocalDate date, int avoidRepeatDays) {
+        List<RecipeResponse> eligible = pool.stream()
+                .filter(c -> {
+                    LocalDate last = lastUsed.get(c.id());
+                    return last == null || Math.abs(ChronoUnit.DAYS.between(last, date)) >= avoidRepeatDays;
+                })
+                .toList();
+        return eligible.isEmpty() ? pool : eligible;
+    }
+
+    /**
      * First pool entry whose last use (in either direction -- a recipe already booked on a *later*
      * date within the same multi-day generation counts as "recently used" too, not just earlier
      * dates) is outside the rotation window; falls back to the entry used least recently by either
@@ -413,13 +420,7 @@ public class MealPlanService {
      * "before" every other candidate's future-dated booking).
      */
     private RecipeResponse pickRecipe(List<RecipeResponse> pool, Map<UUID, LocalDate> lastUsed, LocalDate date, int avoidRepeatDays) {
-        List<RecipeResponse> eligible = pool.stream()
-                .filter(c -> {
-                    LocalDate last = lastUsed.get(c.id());
-                    return last == null || Math.abs(ChronoUnit.DAYS.between(last, date)) >= avoidRepeatDays;
-                })
-                .toList();
-        List<RecipeResponse> candidates = eligible.isEmpty() ? pool : eligible;
+        List<RecipeResponse> candidates = rotationEligibleCandidates(pool, lastUsed, date, avoidRepeatDays);
 
         // Among candidates, prefer the one used furthest from `date` (never-used sorts first) so the
         // schedule actually rotates instead of always re-picking the first pool entry once its
@@ -465,8 +466,8 @@ public class MealPlanService {
         mealPlan.setCooked(true);
         mealPlan = mealPlanRepository.save(mealPlan);
 
-        Map<UUID, User> usersById = userRepository.findAllById(portions.stream().map(MealPlanPortion::getUserId).distinct().toList())
-                .stream().collect(Collectors.toMap(User::getId, u -> u));
+        Map<UUID, User> usersById = RepositoryUtils.findAllByIdAsMap(userRepository,
+                portions.stream().map(MealPlanPortion::getUserId).distinct().toList(), User::getId);
         MealPlanResponse response = toResponse(mealPlan, recipe, portions, usersById);
         broadcast(mealPlan.getHouseholdId(), MealPlanEvent.Type.MEAL_PLAN_UPDATED, response);
         return response;
@@ -499,8 +500,8 @@ public class MealPlanService {
 
         Recipe recipe = recipeRepository.findById(mealPlan.getRecipeId()).orElse(null);
         List<MealPlanPortion> portions = mealPlanPortionRepository.findByMealPlanId(mealPlanId);
-        Map<UUID, User> usersById = userRepository.findAllById(portions.stream().map(MealPlanPortion::getUserId).distinct().toList())
-                .stream().collect(Collectors.toMap(User::getId, u -> u));
+        Map<UUID, User> usersById = RepositoryUtils.findAllByIdAsMap(userRepository,
+                portions.stream().map(MealPlanPortion::getUserId).distinct().toList(), User::getId);
         MealPlanResponse response = toResponse(mealPlan, recipe, portions, usersById);
 
         mealPlanPortionRepository.deleteByMealPlanId(mealPlanId);
@@ -518,11 +519,6 @@ public class MealPlanService {
     }
 
     private void broadcast(UUID householdId, MealPlanEvent.Type type, MealPlanResponse mealPlan) {
-        try {
-            String json = objectMapper.writeValueAsString(new MealPlanEvent(type, mealPlan));
-            socketRegistry.broadcast(householdId, json);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize meal plan event", e);
-        }
+        socketRegistry.broadcastEvent(householdId, new MealPlanEvent(type, mealPlan));
     }
 }

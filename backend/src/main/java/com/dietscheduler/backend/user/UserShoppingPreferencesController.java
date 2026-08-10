@@ -1,6 +1,5 @@
 package com.dietscheduler.backend.user;
 
-import com.dietscheduler.backend.common.NotFoundException;
 import com.dietscheduler.backend.user.dto.ShoppingPreferencesResponse;
 import com.dietscheduler.backend.user.dto.UpdateShoppingPreferencesRequest;
 import jakarta.validation.Valid;
@@ -22,18 +21,14 @@ public class UserShoppingPreferencesController {
 
     @GetMapping
     public ShoppingPreferencesResponse get(@AuthenticationPrincipal UUID userId) {
-        return ShoppingPreferencesResponse.from(findUser(userId));
+        return ShoppingPreferencesResponse.from(userRepository.findRequiredById(userId));
     }
 
     @PatchMapping
     @Transactional
     public ShoppingPreferencesResponse update(@AuthenticationPrincipal UUID userId, @Valid @RequestBody UpdateShoppingPreferencesRequest request) {
-        User user = findUser(userId);
+        User user = userRepository.findRequiredById(userId);
         user.setMissingIngredientsLookaheadDays(request.missingIngredientsLookaheadDays());
         return ShoppingPreferencesResponse.from(userRepository.save(user));
-    }
-
-    private User findUser(UUID userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
     }
 }

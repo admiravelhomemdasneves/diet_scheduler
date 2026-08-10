@@ -105,10 +105,9 @@ public class ExternalRecipeService {
         if (results.isEmpty()) {
             return emptyNutrition(pi);
         }
-        OpenFoodFactsClient.Nutriments n = results.get(0).nutriments();
+        OpenFoodFactsClient.Nutriments n = results.get(0).nutrimentsOrEmpty();
         return new NutritionEstimator.IngredientNutrition(pi.measure().quantity(), pi.measure().unit(),
-                n != null ? n.energyKcal100g() : null, n != null ? n.proteins100g() : null,
-                n != null ? n.carbohydrates100g() : null, n != null ? n.fat100g() : null);
+                n.energyKcal100g(), n.proteins100g(), n.carbohydrates100g(), n.fat100g());
     }
 
     /** Same "no data for this ingredient" shape used both when Open Food Facts has no match and

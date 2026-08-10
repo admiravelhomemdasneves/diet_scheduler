@@ -45,6 +45,25 @@ public class IngredientService {
     }
 
     /**
+     * Resolves a GLOBAL ingredient by id, or finds/creates one by name -- shared by any caller
+     * referencing ingredients outside a household context (recipe ingredients, shopping-list
+     * items added by name). Was duplicated byte-for-byte in RecipeService and ShoppingListService.
+     * Household-scoped resolution (pantry items, which may create a household's own custom
+     * ingredient) goes through resolveEditableIngredient/findOrCreateByName instead.
+     */
+    public Ingredient resolveGlobalOrCreate(UUID ingredientId, String ingredientName) {
+        if (ingredientId != null) {
+            return ingredientRepository.findById(ingredientId)
+                    .orElseThrow(() -> new NotFoundException("Ingredient not found"));
+        }
+        if (!StringUtils.hasText(ingredientName)) {
+            throw new IllegalArgumentException("Either ingredientId or ingredientName is required");
+        }
+        return ingredientRepository.findByNameIgnoreCaseAndHouseholdIdIsNull(ingredientName.trim())
+                .orElseGet(() -> ingredientRepository.save(Ingredient.builder().name(ingredientName.trim()).build()));
+    }
+
+    /**
      * Global (household_id == null) ingredients are visible to any authenticated user -- they're
      * a shared reference catalog. A household-owned custom ingredient is only visible to that
      * household's own members; without this check any authenticated user could read another
@@ -196,16 +215,16 @@ public class IngredientService {
             return ingredientRepository.save(Ingredient.builder().name(name).build());
         }
         OpenFoodFactsClient.Product best = results.get(0);
-        OpenFoodFactsClient.Nutriments n = best.nutriments();
+        OpenFoodFactsClient.Nutriments n = best.nutrimentsOrEmpty();
         return ingredientRepository.save(Ingredient.builder()
                 .name(name) // keep the user's own typed name, not Open Food Facts' product name
                 .category(firstCategory(best.categories()))
                 .barcode(safeBarcode(best.code()))
                 .imageUrl(best.imageUrl())
-                .caloriesPer100g(n != null ? n.energyKcal100g() : null)
-                .proteinPer100g(n != null ? n.proteins100g() : null)
-                .carbsPer100g(n != null ? n.carbohydrates100g() : null)
-                .fatPer100g(n != null ? n.fat100g() : null)
+                .caloriesPer100g(n.energyKcal100g())
+                .proteinPer100g(n.proteins100g())
+                .carbsPer100g(n.carbohydrates100g())
+                .fatPer100g(n.fat100g())
                 .build());
     }
 
@@ -226,34 +245,34 @@ public class IngredientService {
                     return ingredientRepository.save(existing);
                 })
                 .orElseGet(() -> {
-                    OpenFoodFactsClient.Nutriments n = product.nutriments();
+                    OpenFoodFactsClient.Nutriments n = product.nutrimentsOrEmpty();
                     Ingredient ingredient = Ingredient.builder()
                             .name(name)
                             .category(firstCategory(product.categories()))
                             .defaultUnit(guessUnit(product.quantity()))
                             .barcode(barcode)
                             .imageUrl(product.imageUrl())
-                            .caloriesPer100g(n != null ? n.energyKcal100g() : null)
-                            .proteinPer100g(n != null ? n.proteins100g() : null)
-                            .carbsPer100g(n != null ? n.carbohydrates100g() : null)
-                            .fatPer100g(n != null ? n.fat100g() : null)
+                            .caloriesPer100g(n.energyKcal100g())
+                            .proteinPer100g(n.proteins100g())
+                            .carbsPer100g(n.carbohydrates100g())
+                            .fatPer100g(n.fat100g())
                             .build();
                     return ingredientRepository.save(ingredient);
                 });
     }
 
     private IngredientSuggestion toSuggestion(OpenFoodFactsClient.Product p) {
-        OpenFoodFactsClient.Nutriments n = p.nutriments();
+        OpenFoodFactsClient.Nutriments n = p.nutrimentsOrEmpty();
         return new IngredientSuggestion(
                 null,
                 p.productName().trim(),
                 p.code(),
                 p.imageUrl(),
                 firstCategory(p.categories()),
-                n != null ? n.energyKcal100g() : null,
-                n != null ? n.proteins100g() : null,
-                n != null ? n.carbohydrates100g() : null,
-                n != null ? n.fat100g() : null,
+                n.energyKcal100g(),
+                n.proteins100g(),
+                n.carbohydrates100g(),
+                n.fat100g(),
                 false
         );
     }

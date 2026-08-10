@@ -1,6 +1,5 @@
 package com.dietscheduler.backend.user;
 
-import com.dietscheduler.backend.common.NotFoundException;
 import com.dietscheduler.backend.user.dto.NutritionProfileResponse;
 import com.dietscheduler.backend.user.dto.UpdateNutritionProfileRequest;
 import jakarta.validation.Valid;
@@ -22,13 +21,13 @@ public class UserNutritionProfileController {
 
     @GetMapping
     public NutritionProfileResponse get(@AuthenticationPrincipal UUID userId) {
-        return NutritionProfileResponse.from(findUser(userId));
+        return NutritionProfileResponse.from(userRepository.findRequiredById(userId));
     }
 
     @PatchMapping
     @Transactional
     public NutritionProfileResponse update(@AuthenticationPrincipal UUID userId, @Valid @RequestBody UpdateNutritionProfileRequest request) {
-        User user = findUser(userId);
+        User user = userRepository.findRequiredById(userId);
         if (request.gender() != null) user.setGender(request.gender());
         if (request.age() != null) user.setAge(request.age());
         if (request.weight() != null) user.setWeight(request.weight());
@@ -39,9 +38,5 @@ public class UserNutritionProfileController {
         if (request.fatTargetGrams() != null) user.setFatTargetGrams(request.fatTargetGrams());
         if (request.weightGoalKg() != null) user.setWeightGoalKg(request.weightGoalKg());
         return NutritionProfileResponse.from(userRepository.save(user));
-    }
-
-    private User findUser(UUID userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
     }
 }

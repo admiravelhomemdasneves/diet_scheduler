@@ -3,7 +3,6 @@ package com.dietscheduler.backend.auth;
 import com.dietscheduler.backend.auth.dto.AuthResponse;
 import com.dietscheduler.backend.auth.dto.GoogleSignInRequest;
 import com.dietscheduler.backend.auth.dto.UserResponse;
-import com.dietscheduler.backend.common.NotFoundException;
 import com.dietscheduler.backend.user.AuthProvider;
 import com.dietscheduler.backend.user.User;
 import com.dietscheduler.backend.user.UserRepository;
@@ -58,8 +57,6 @@ public class AuthController {
 
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User not found"));
-        return UserResponse.from(user);
+        return UserResponse.from(userRepository.findRequiredById(userId));
     }
 }

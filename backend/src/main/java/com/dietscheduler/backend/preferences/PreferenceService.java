@@ -1,6 +1,7 @@
 package com.dietscheduler.backend.preferences;
 
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.common.RepositoryUtils;
 import com.dietscheduler.backend.household.HouseholdService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class PreferenceService {
@@ -68,8 +68,8 @@ public class PreferenceService {
 
     public List<Map.Entry<Taste, TastePreference>> getUserTastes(UUID userId) {
         List<UserTaste> entries = userTasteRepository.findByUserId(userId);
-        Map<UUID, Taste> tastesById = tasteRepository.findAllById(entries.stream().map(UserTaste::getTasteId).toList())
-                .stream().collect(Collectors.toMap(Taste::getId, t -> t));
+        Map<UUID, Taste> tastesById = RepositoryUtils.findAllByIdAsMap(tasteRepository,
+                entries.stream().map(UserTaste::getTasteId).toList(), Taste::getId);
         return entries.stream()
                 .filter(e -> tastesById.containsKey(e.getTasteId()))
                 .map(e -> Map.entry(tastesById.get(e.getTasteId()), e.getPreference()))
@@ -122,8 +122,8 @@ public class PreferenceService {
         householdService.requireMembership(householdId, requesterUserId);
         inheritanceService.ensureHouseholdPreferencesInherited(householdId);
         List<HouseholdTaste> entries = householdTasteRepository.findByHouseholdId(householdId);
-        Map<UUID, Taste> tastesById = tasteRepository.findAllById(entries.stream().map(HouseholdTaste::getTasteId).toList())
-                .stream().collect(Collectors.toMap(Taste::getId, t -> t));
+        Map<UUID, Taste> tastesById = RepositoryUtils.findAllByIdAsMap(tasteRepository,
+                entries.stream().map(HouseholdTaste::getTasteId).toList(), Taste::getId);
         return entries.stream()
                 .filter(e -> tastesById.containsKey(e.getTasteId()))
                 .map(e -> Map.entry(tastesById.get(e.getTasteId()), e.getPreference()))

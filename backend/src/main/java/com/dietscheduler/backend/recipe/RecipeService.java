@@ -3,9 +3,11 @@ package com.dietscheduler.backend.recipe;
 import com.dietscheduler.backend.common.ConflictException;
 import com.dietscheduler.backend.common.ForbiddenException;
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.common.RepositoryUtils;
 import com.dietscheduler.backend.config.ImagesProperties;
 import com.dietscheduler.backend.pantry.Ingredient;
 import com.dietscheduler.backend.pantry.IngredientRepository;
+import com.dietscheduler.backend.pantry.IngredientService;
 import com.dietscheduler.backend.pantry.PantryItem;
 import com.dietscheduler.backend.pantry.PantryItemRepository;
 import com.dietscheduler.backend.preferences.*;
@@ -29,6 +31,7 @@ public class RecipeService {
     private final RecipeIngredientRepository recipeIngredientRepository;
     private final RecipeTagRepository recipeTagRepository;
     private final IngredientRepository ingredientRepository;
+    private final IngredientService ingredientService;
     private final AllergyRepository allergyRepository;
     private final HouseholdTasteRepository householdTasteRepository;
     private final HouseholdAllergyRepository householdAllergyRepository;
@@ -39,7 +42,7 @@ public class RecipeService {
 
     public RecipeService(RecipeRepository recipeRepository, RecipeIngredientRepository recipeIngredientRepository,
                           RecipeTagRepository recipeTagRepository, IngredientRepository ingredientRepository,
-                          AllergyRepository allergyRepository,
+                          IngredientService ingredientService, AllergyRepository allergyRepository,
                           HouseholdTasteRepository householdTasteRepository, HouseholdAllergyRepository householdAllergyRepository,
                           TasteRepository tasteRepository, PantryItemRepository pantryItemRepository,
                           PreferenceService preferenceService, ImagesProperties imagesProperties) {
@@ -47,6 +50,7 @@ public class RecipeService {
         this.recipeIngredientRepository = recipeIngredientRepository;
         this.recipeTagRepository = recipeTagRepository;
         this.ingredientRepository = ingredientRepository;
+        this.ingredientService = ingredientService;
         this.allergyRepository = allergyRepository;
         this.householdTasteRepository = householdTasteRepository;
         this.householdAllergyRepository = householdAllergyRepository;
@@ -267,10 +271,9 @@ public class RecipeService {
         Map<UUID, List<RecipeTag>> tagsByRecipe = recipeTagRepository.findByRecipeIdIn(recipeIds)
                 .stream().collect(Collectors.groupingBy(RecipeTag::getRecipeId));
 
-        Map<UUID, Ingredient> ingredientsById = ingredientRepository.findAllById(
-                        ingredientsByRecipe.values().stream().flatMap(List::stream)
-                                .map(RecipeIngredient::getIngredientId).distinct().toList())
-                .stream().collect(Collectors.toMap(Ingredient::getId, i -> i));
+        Map<UUID, Ingredient> ingredientsById = RepositoryUtils.findAllByIdAsMap(ingredientRepository,
+                ingredientsByRecipe.values().stream().flatMap(List::stream)
+                        .map(RecipeIngredient::getIngredientId).distinct().toList(), Ingredient::getId);
 
         Set<String> wantedTagValues = tagValues == null ? Set.of() :
                 tagValues.stream().map(String::toLowerCase).filter(StringUtils::hasText).collect(Collectors.toSet());
@@ -393,7 +396,7 @@ public class RecipeService {
         }
         return requests.stream()
                 .map(req -> {
-                    Ingredient ingredient = resolveIngredient(req.ingredientId(), req.ingredientName());
+                    Ingredient ingredient = ingredientService.resolveGlobalOrCreate(req.ingredientId(), req.ingredientName());
                     return recipeIngredientRepository.save(RecipeIngredient.builder()
                             .recipeId(recipeId)
                             .ingredientId(ingredient.getId())
@@ -417,22 +420,9 @@ public class RecipeService {
                 .toList();
     }
 
-    private Ingredient resolveIngredient(UUID ingredientId, String ingredientName) {
-        if (ingredientId != null) {
-            return ingredientRepository.findById(ingredientId)
-                    .orElseThrow(() -> new NotFoundException("Ingredient not found"));
-        }
-        if (!StringUtils.hasText(ingredientName)) {
-            throw new IllegalArgumentException("Either ingredientId or ingredientName is required");
-        }
-        return ingredientRepository.findByNameIgnoreCaseAndHouseholdIdIsNull(ingredientName.trim())
-                .orElseGet(() -> ingredientRepository.save(Ingredient.builder().name(ingredientName.trim()).build()));
-    }
-
     private RecipeResponse toResponse(Recipe recipe, List<RecipeIngredient> ingredients, List<RecipeTag> tags) {
-        Map<UUID, Ingredient> ingredientsById = ingredientRepository.findAllById(
-                        ingredients.stream().map(RecipeIngredient::getIngredientId).distinct().toList())
-                .stream().collect(Collectors.toMap(Ingredient::getId, i -> i));
+        Map<UUID, Ingredient> ingredientsById = RepositoryUtils.findAllByIdAsMap(ingredientRepository,
+                ingredients.stream().map(RecipeIngredient::getIngredientId).distinct().toList(), Ingredient::getId);
         return toResponse(recipe, ingredients, tags, ingredientsById);
     }
 

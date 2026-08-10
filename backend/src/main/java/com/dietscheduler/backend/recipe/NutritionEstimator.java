@@ -60,7 +60,7 @@ public final class NutritionEstimator {
                 calories / servings, protein / servings, carbs / servings, fat / servings, incomplete);
     }
 
-    public static Double toGrams(BigDecimal quantity, String unit) {
+    static Double toGrams(BigDecimal quantity, String unit) {
         if (unit == null || unit.isBlank()) {
             return null;
         }

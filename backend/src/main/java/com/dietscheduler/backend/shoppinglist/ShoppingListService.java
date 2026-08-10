@@ -2,6 +2,7 @@ package com.dietscheduler.backend.shoppinglist;
 
 import com.dietscheduler.backend.common.DateRangeValidation;
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.common.RepositoryUtils;
 import com.dietscheduler.backend.config.LimitsProperties;
 import com.dietscheduler.backend.household.HouseholdService;
 import com.dietscheduler.backend.mealplan.MealPlan;
@@ -10,6 +11,7 @@ import com.dietscheduler.backend.mealplan.MealPlanPortionRepository;
 import com.dietscheduler.backend.mealplan.MealPlanRepository;
 import com.dietscheduler.backend.pantry.Ingredient;
 import com.dietscheduler.backend.pantry.IngredientRepository;
+import com.dietscheduler.backend.pantry.IngredientService;
 import com.dietscheduler.backend.pantry.PantryEvent;
 import com.dietscheduler.backend.pantry.PantryItem;
 import com.dietscheduler.backend.pantry.PantryItemRepository;
@@ -26,8 +28,6 @@ import com.dietscheduler.backend.shoppinglist.dto.MissingIngredientResponse;
 import com.dietscheduler.backend.shoppinglist.dto.ShoppingListItemResponse;
 import com.dietscheduler.backend.shoppinglist.dto.UpdateShoppingListItemRequest;
 import com.dietscheduler.backend.ws.HouseholdSocketRegistry;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -44,6 +44,7 @@ public class ShoppingListService {
 
     private final ShoppingListItemRepository shoppingListItemRepository;
     private final IngredientRepository ingredientRepository;
+    private final IngredientService ingredientService;
     private final HouseholdService householdService;
     private final MealPlanRepository mealPlanRepository;
     private final MealPlanPortionRepository mealPlanPortionRepository;
@@ -52,17 +53,18 @@ public class ShoppingListService {
     private final PantryItemRepository pantryItemRepository;
     private final IgnoredMissingIngredientRepository ignoredMissingIngredientRepository;
     private final HouseholdSocketRegistry socketRegistry;
-    private final ObjectMapper objectMapper;
     private final LimitsProperties limits;
 
     public ShoppingListService(ShoppingListItemRepository shoppingListItemRepository, IngredientRepository ingredientRepository,
-                                HouseholdService householdService, MealPlanRepository mealPlanRepository,
+                                IngredientService ingredientService, HouseholdService householdService,
+                                MealPlanRepository mealPlanRepository,
                                 MealPlanPortionRepository mealPlanPortionRepository, RecipeRepository recipeRepository,
                                 RecipeIngredientRepository recipeIngredientRepository, PantryItemRepository pantryItemRepository,
                                 IgnoredMissingIngredientRepository ignoredMissingIngredientRepository,
-                                HouseholdSocketRegistry socketRegistry, ObjectMapper objectMapper, LimitsProperties limits) {
+                                HouseholdSocketRegistry socketRegistry, LimitsProperties limits) {
         this.shoppingListItemRepository = shoppingListItemRepository;
         this.ingredientRepository = ingredientRepository;
+        this.ingredientService = ingredientService;
         this.householdService = householdService;
         this.mealPlanRepository = mealPlanRepository;
         this.mealPlanPortionRepository = mealPlanPortionRepository;
@@ -71,7 +73,6 @@ public class ShoppingListService {
         this.pantryItemRepository = pantryItemRepository;
         this.ignoredMissingIngredientRepository = ignoredMissingIngredientRepository;
         this.socketRegistry = socketRegistry;
-        this.objectMapper = objectMapper;
         this.limits = limits;
     }
 
@@ -83,7 +84,7 @@ public class ShoppingListService {
     @Transactional
     public ShoppingListItemResponse create(UUID householdId, UUID requesterUserId, CreateShoppingListItemRequest request) {
         householdService.requireMembership(householdId, requesterUserId);
-        Ingredient ingredient = resolveIngredient(request.ingredientId(), request.ingredientName());
+        Ingredient ingredient = ingredientService.resolveGlobalOrCreate(request.ingredientId(), request.ingredientName());
 
         ShoppingListItem item = shoppingListItemRepository.save(ShoppingListItem.builder()
                 .householdId(householdId)
@@ -155,12 +156,8 @@ public class ShoppingListService {
         }
         pantryItem = pantryItemRepository.save(pantryItem);
 
-        try {
-            socketRegistry.broadcast(item.getHouseholdId(),
-                    objectMapper.writeValueAsString(new PantryEvent(eventType, PantryItemResponse.from(pantryItem, ingredient))));
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize pantry event", e);
-        }
+        socketRegistry.broadcastEvent(item.getHouseholdId(),
+                new PantryEvent(eventType, PantryItemResponse.from(pantryItem, ingredient)));
     }
 
     @Transactional
@@ -242,9 +239,8 @@ public class ShoppingListService {
             }
         }
 
-        Map<UUID, Ingredient> ingredientsById = ingredientRepository.findAllById(
-                        gapsByKey.keySet().stream().map(k -> UUID.fromString(splitKey(k)[0])).distinct().toList())
-                .stream().collect(Collectors.toMap(Ingredient::getId, i -> i));
+        Map<UUID, Ingredient> ingredientsById = RepositoryUtils.findAllByIdAsMap(ingredientRepository,
+                gapsByKey.keySet().stream().map(k -> UUID.fromString(splitKey(k)[0])).distinct().toList(), Ingredient::getId);
 
         List<MissingIngredientResponse> result = new ArrayList<>();
         for (Map.Entry<String, BigDecimal> entry : gapsByKey.entrySet()) {
@@ -326,22 +322,9 @@ public class ShoppingListService {
         return key.split("\\|", 2);
     }
 
-    private Ingredient resolveIngredient(UUID ingredientId, String ingredientName) {
-        if (ingredientId != null) {
-            return ingredientRepository.findById(ingredientId)
-                    .orElseThrow(() -> new NotFoundException("Ingredient not found"));
-        }
-        if (!StringUtils.hasText(ingredientName)) {
-            throw new IllegalArgumentException("Either ingredientId or ingredientName is required");
-        }
-        return ingredientRepository.findByNameIgnoreCaseAndHouseholdIdIsNull(ingredientName.trim())
-                .orElseGet(() -> ingredientRepository.save(Ingredient.builder().name(ingredientName.trim()).build()));
-    }
-
     private List<ShoppingListItemResponse> toResponses(List<ShoppingListItem> items) {
-        Map<UUID, Ingredient> ingredientsById = ingredientRepository.findAllById(
-                        items.stream().map(ShoppingListItem::getIngredientId).distinct().toList())
-                .stream().collect(Collectors.toMap(Ingredient::getId, i -> i));
+        Map<UUID, Ingredient> ingredientsById = RepositoryUtils.findAllByIdAsMap(ingredientRepository,
+                items.stream().map(ShoppingListItem::getIngredientId).distinct().toList(), Ingredient::getId);
         return items.stream().map(i -> ShoppingListItemResponse.from(i, ingredientsById.get(i.getIngredientId()))).toList();
     }
 
@@ -354,10 +337,6 @@ public class ShoppingListService {
     }
 
     private void broadcast(UUID householdId, ShoppingListEvent event) {
-        try {
-            socketRegistry.broadcast(householdId, objectMapper.writeValueAsString(event));
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize shopping list event", e);
-        }
+        socketRegistry.broadcastEvent(householdId, event);
     }
 }

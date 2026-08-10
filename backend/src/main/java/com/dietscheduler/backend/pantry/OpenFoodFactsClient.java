@@ -104,6 +104,14 @@ public class OpenFoodFactsClient {
         public String imageUrl() {
             return imageFrontSmallUrl != null ? imageFrontSmallUrl : imageSmallUrl;
         }
+
+        /** Open Food Facts frequently omits the whole "nutriments" object for a product. Every
+         * caller was repeating {@code n != null ? n.xyz() : null} for all four fields; this
+         * collapses the null-check to one place, one time, at the point where the null can
+         * actually occur -- callers can just read {@code product.nutrimentsOrEmpty().xyz()}. */
+        public Nutriments nutrimentsOrEmpty() {
+            return nutriments != null ? nutriments : Nutriments.EMPTY;
+        }
     }
 
     public record Nutriments(
@@ -111,5 +119,7 @@ public class OpenFoodFactsClient {
             @JsonProperty("proteins_100g") Double proteins100g,
             @JsonProperty("carbohydrates_100g") Double carbohydrates100g,
             @JsonProperty("fat_100g") Double fat100g) {
+
+        static final Nutriments EMPTY = new Nutriments(null, null, null, null);
     }
 }

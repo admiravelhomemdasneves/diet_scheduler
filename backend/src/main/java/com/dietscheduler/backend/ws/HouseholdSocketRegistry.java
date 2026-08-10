@@ -1,5 +1,7 @@
 package com.dietscheduler.backend.ws;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -24,6 +26,11 @@ public class HouseholdSocketRegistry {
     public static final CloseStatus HOUSEHOLD_ACCESS_REVOKED = new CloseStatus(4001, "household access revoked");
 
     private final Map<UUID, Set<WebSocketSession>> sessionsByHousehold = new ConcurrentHashMap<>();
+    private final ObjectMapper objectMapper;
+
+    public HouseholdSocketRegistry(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     public void register(UUID householdId, WebSocketSession session) {
         sessionsByHousehold.computeIfAbsent(householdId, k -> ConcurrentHashMap.newKeySet()).add(session);
@@ -57,6 +64,22 @@ public class HouseholdSocketRegistry {
             } catch (IOException e) {
                 // Best-effort broadcast; a failed send here just means that one client misses this update.
             }
+        }
+    }
+
+    /** Serializes and broadcasts a WS event to a household's channel -- the serialize-then-broadcast
+     * try/catch was duplicated across PantryService, MealPlanService, ShoppingListService (twice)
+     * and HouseholdService. Throws (fails the request) on serialization failure, since that means
+     * the event DTO itself is broken, not a per-client delivery problem; {@link #broadcast} below
+     * already treats an individual client's send failure as best-effort. Callers that want a
+     * different failure mode for their specific event (HouseholdService's household-deleted
+     * notification is best-effort, since the household is gone either way) still wrap this in
+     * their own try/catch. */
+    public void broadcastEvent(UUID householdId, Object event) {
+        try {
+            broadcast(householdId, objectMapper.writeValueAsString(event));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize WS event for household " + householdId, e);
         }
     }
 

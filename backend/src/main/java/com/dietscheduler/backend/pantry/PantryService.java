@@ -1,13 +1,12 @@
 package com.dietscheduler.backend.pantry;
 
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.common.RepositoryUtils;
 import com.dietscheduler.backend.household.HouseholdService;
 import com.dietscheduler.backend.pantry.dto.CreatePantryItemRequest;
 import com.dietscheduler.backend.pantry.dto.PantryItemResponse;
 import com.dietscheduler.backend.pantry.dto.UpdatePantryItemRequest;
 import com.dietscheduler.backend.ws.HouseholdSocketRegistry;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -16,7 +15,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class PantryService {
@@ -26,25 +24,22 @@ public class PantryService {
     private final IngredientService ingredientService;
     private final HouseholdService householdService;
     private final HouseholdSocketRegistry socketRegistry;
-    private final ObjectMapper objectMapper;
 
     public PantryService(PantryItemRepository pantryItemRepository, IngredientRepository ingredientRepository,
                           IngredientService ingredientService, HouseholdService householdService,
-                          HouseholdSocketRegistry socketRegistry, ObjectMapper objectMapper) {
+                          HouseholdSocketRegistry socketRegistry) {
         this.pantryItemRepository = pantryItemRepository;
         this.ingredientRepository = ingredientRepository;
         this.ingredientService = ingredientService;
         this.householdService = householdService;
         this.socketRegistry = socketRegistry;
-        this.objectMapper = objectMapper;
     }
 
     public List<PantryItemResponse> list(UUID householdId, UUID requesterUserId) {
         householdService.requireMembership(householdId, requesterUserId);
         List<PantryItem> items = pantryItemRepository.findByHouseholdId(householdId);
-        Map<UUID, Ingredient> ingredientsById = ingredientRepository.findAllById(
-                        items.stream().map(PantryItem::getIngredientId).distinct().toList())
-                .stream().collect(Collectors.toMap(Ingredient::getId, i -> i));
+        Map<UUID, Ingredient> ingredientsById = RepositoryUtils.findAllByIdAsMap(ingredientRepository,
+                items.stream().map(PantryItem::getIngredientId).distinct().toList(), Ingredient::getId);
         return items.stream()
                 .map(item -> PantryItemResponse.from(item, ingredientsById.get(item.getIngredientId())))
                 .toList();
@@ -139,11 +134,6 @@ public class PantryService {
     }
 
     private void broadcast(UUID householdId, PantryEvent.Type type, PantryItemResponse item) {
-        try {
-            String json = objectMapper.writeValueAsString(new PantryEvent(type, item));
-            socketRegistry.broadcast(householdId, json);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize pantry event", e);
-        }
+        socketRegistry.broadcastEvent(householdId, new PantryEvent(type, item));
     }
 }
