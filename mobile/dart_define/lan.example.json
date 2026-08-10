@@ -1,0 +1,4 @@
+{
+  "_comment": "Copy this file to lan.json (gitignored) and fill in your dev machine's real LAN IP -- run 'ipconfig' (Windows) and look for the IPv4 address of your Wi-Fi/Ethernet adapter, not a VPN or Hyper-V/WSL virtual adapter. Your phone must be on the same WiFi network as this machine, and Windows Firewall must allow inbound TCP 8080 (see README).",
+  "DS_API_ORIGIN": "http://192.168.1.XXX:8080"
+}

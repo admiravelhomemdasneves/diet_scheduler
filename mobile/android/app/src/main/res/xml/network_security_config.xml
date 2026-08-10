@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strict by default: a release build physically cannot make a cleartext (http://) request,
+  full stop; no domain exceptions here. The debug-only override at
+  android/app/src/debug/res/xml/network_security_config.xml relaxes this for local dev
+  (emulator + LAN phone testing); Android's source-set merge means the debug variant's copy
+  of this file wins for debug builds, and this one (main) is what ships in release.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

@@ -71,16 +71,22 @@ flutter pub get
 flutter run
 ```
 
-By default the app talks to `http://10.0.2.2:8080` on Android (the special alias an Android
-emulator uses to reach its host machine) or `http://localhost:8080` elsewhere — i.e. it expects
-the backend from the step above to be running on the same machine as the emulator.
+By default (`flutter run` with no flags) the app talks to `http://10.0.2.2:8080` -- the special
+alias an Android emulator uses to reach its host machine -- i.e. it expects the backend from the
+step above to be running on the same machine as the emulator. This comes from a single build-time
+flag, `DS_API_ORIGIN` (see `mobile/lib/config.dart`'s `ApiConfig`), set via
+`--dart-define-from-file`; the JSON files under `mobile/dart_define/` hold the presets.
 
 **Testing on a physical device on the same WiFi network as your backend:**
 
 1. Find your dev machine's LAN IP (`ipconfig` on Windows, look for the WiFi adapter's IPv4
-   address — e.g. `192.168.1.37`).
-2. Update `mobile/lib/config.dart`'s base URL to point at that IP instead of `10.0.2.2`/`localhost`.
-3. **Open an inbound firewall rule for TCP 8080** on the dev machine — this is the most common
+   address — e.g. `192.168.1.37` — not a VPN or Hyper-V/WSL virtual adapter).
+2. Copy `mobile/dart_define/lan.example.json` to `mobile/dart_define/lan.json` (gitignored) and
+   fill in that IP.
+3. Also update the literal IP in
+   `mobile/android/app/src/debug/res/xml/network_security_config.xml` — Android's cleartext
+   allow-list only accepts literal hosts, not a CIDR range, so this has to match `lan.json`.
+4. **Open an inbound firewall rule for TCP 8080** on the dev machine — this is the most common
    reason "the phone can't connect" even when everything else is configured correctly:
 
    ```powershell
@@ -89,9 +95,18 @@ the backend from the step above to be running on the same machine as the emulato
 
    (`docker-compose.yml` already binds the backend to `0.0.0.0:8080`, i.e. all network
    interfaces, not just loopback — the firewall is the only remaining blocker.)
+5. Run against the phone with the LAN config:
 
-A build-time flag for switching this without editing source (`--dart-define`) is planned but not
-yet implemented; check back or see the project's production-readiness notes.
+   ```bash
+   flutter run --dart-define-from-file=dart_define/lan.json
+   ```
+
+   (`mobile/.vscode/launch.json` has an equivalent "DietScheduler (Phone over LAN)" configuration
+   if you're using VS Code.)
+
+A release build ships with cleartext traffic disabled entirely (see
+`mobile/android/app/src/main/res/xml/network_security_config.xml`) — the debug-only override
+above is what makes local HTTP testing possible without weakening the release build.
 
 ## Google Sign-In config
 

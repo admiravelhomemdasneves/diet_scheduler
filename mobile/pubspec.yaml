@@ -1,5 +1,5 @@
-name: mobile
-description: "A new Flutter project."
+name: dietscheduler
+description: "DietScheduler: household pantry, meal planning and shopping list app."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

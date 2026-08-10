@@ -39,6 +39,8 @@ mobile/dart_define/lan.json
 .idea/
 *.iml
 .vscode/
+!mobile/.vscode/
+!mobile/.vscode/launch.json
 .DS_Store
 
 # --- Claude Code local settings (machine-specific permission allowlist) ---

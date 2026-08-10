@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "DietScheduler (Emulator)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["--dart-define-from-file", "dart_define/emulator.json"]
+    },
+    {
+      "name": "DietScheduler (Phone over LAN)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["--dart-define-from-file", "dart_define/lan.json"]
+    },
+    {
+      "name": "DietScheduler (Profile, LAN)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/main.dart",
+      "args": ["--dart-define-from-file", "dart_define/lan.json"]
+    }
+  ]
+}
