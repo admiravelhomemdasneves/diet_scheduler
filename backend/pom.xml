@@ -113,6 +113,29 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Satisfies RequiredConfigEnvironmentPostProcessor / JwtProperties for the test
+                         JVM. DIETSCHEDULER_DB_URL points at an in-memory H2 instance (see
+                         application.yml's ${DIETSCHEDULER_DB_URL} placeholder) so tests need no
+                         running Postgres; SPRING_PROFILES_ACTIVE=dev reuses the existing dev
+                         profile's ddl-auto=update to create the schema from the entities fresh
+                         each run, rather than introducing a separate test-only profile.
+                         NON_KEYWORDS=VALUE: H2 2.x reserves VALUE as a keyword, but RecipeTag has
+                         an actual column named "value" (fine on real Postgres, where it isn't
+                         reserved); this un-reserves it for the test DB only, no entity/schema
+                         change needed. -->
+                    <environmentVariables>
+                        <SPRING_PROFILES_ACTIVE>dev</SPRING_PROFILES_ACTIVE>
+                        <DIETSCHEDULER_JWT_SECRET>test-only-jwt-secret-at-least-32-characters-long-not-a-placeholder</DIETSCHEDULER_JWT_SECRET>
+                        <DIETSCHEDULER_DB_URL>jdbc:h2:mem:dietscheduler-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=VALUE</DIETSCHEDULER_DB_URL>
+                        <DIETSCHEDULER_DB_USER>sa</DIETSCHEDULER_DB_USER>
+                        <DIETSCHEDULER_DB_PASSWORD>sa</DIETSCHEDULER_DB_PASSWORD>
+                    </environmentVariables>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
