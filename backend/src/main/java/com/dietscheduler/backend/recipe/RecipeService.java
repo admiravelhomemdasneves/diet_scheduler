@@ -1,7 +1,9 @@
 package com.dietscheduler.backend.recipe;
 
+import com.dietscheduler.backend.common.ConflictException;
 import com.dietscheduler.backend.common.ForbiddenException;
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.config.ImagesProperties;
 import com.dietscheduler.backend.pantry.Ingredient;
 import com.dietscheduler.backend.pantry.IngredientRepository;
 import com.dietscheduler.backend.pantry.PantryItem;
@@ -33,13 +35,14 @@ public class RecipeService {
     private final TasteRepository tasteRepository;
     private final PantryItemRepository pantryItemRepository;
     private final PreferenceService preferenceService;
+    private final ImagesProperties imagesProperties;
 
     public RecipeService(RecipeRepository recipeRepository, RecipeIngredientRepository recipeIngredientRepository,
                           RecipeTagRepository recipeTagRepository, IngredientRepository ingredientRepository,
                           AllergyRepository allergyRepository,
                           HouseholdTasteRepository householdTasteRepository, HouseholdAllergyRepository householdAllergyRepository,
                           TasteRepository tasteRepository, PantryItemRepository pantryItemRepository,
-                          PreferenceService preferenceService) {
+                          PreferenceService preferenceService, ImagesProperties imagesProperties) {
         this.recipeRepository = recipeRepository;
         this.recipeIngredientRepository = recipeIngredientRepository;
         this.recipeTagRepository = recipeTagRepository;
@@ -50,6 +53,7 @@ public class RecipeService {
         this.pantryItemRepository = pantryItemRepository;
         this.tasteRepository = tasteRepository;
         this.preferenceService = preferenceService;
+        this.imagesProperties = imagesProperties;
     }
 
     @Transactional
@@ -119,14 +123,19 @@ public class RecipeService {
         recipeIngredientRepository.deleteByRecipeId(recipeId);
         recipeTagRepository.deleteByRecipeId(recipeId);
         recipeRepository.deleteById(recipeId);
+        // Previously left the file behind forever, still publicly fetchable at its old URL by
+        // anyone who'd seen it -- the recipe row being gone didn't stop /recipe-images/** (permitAll,
+        // static) from continuing to serve it.
+        deleteImageFilesIfAny(recipeId);
     }
 
-    private static final Map<String, String> IMAGE_CONTENT_TYPE_EXTENSIONS = Map.of(
-            "image/jpeg", "jpg",
-            "image/png", "png",
-            "image/webp", "webp"
-    );
+    // Ordered least-to-most-specific-length-signature so the shortest check that CAN determine a
+    // mismatch runs first; doesn't actually matter for correctness, only which mismatch you see
+    // first in a debugger.
+    private static final byte[] PNG_MAGIC = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+    private static final byte[] JPEG_MAGIC = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
     private static final Path IMAGE_DIR = Path.of("recipe-images");
+    private static final List<String> IMAGE_EXTENSIONS = List.of("jpg", "png", "webp");
 
     @Transactional
     public RecipeResponse updateImage(UUID recipeId, UUID requesterUserId, MultipartFile file) {
@@ -134,14 +143,37 @@ public class RecipeService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("No image file provided");
         }
-        String extension = IMAGE_CONTENT_TYPE_EXTENSIONS.get(file.getContentType());
-        if (extension == null) {
-            throw new IllegalArgumentException("Unsupported image type: " + file.getContentType() + " (use JPEG, PNG or WEBP)");
+        if (file.getSize() > imagesProperties.maxBytes()) {
+            throw new IllegalArgumentException("Image exceeds the " + (imagesProperties.maxBytes() / (1024 * 1024)) + " MB limit");
         }
+
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read uploaded image", e);
+        }
+        // Sniffed from the file's actual leading bytes, not file.getContentType() -- that header is
+        // entirely client-supplied and trusting it let arbitrary bytes (with a forced .jpg/.png/
+        // .webp extension) be stored and served back to anyone with the URL.
+        String extension = sniffImageExtension(bytes);
+        if (extension == null) {
+            throw new IllegalArgumentException("File content doesn't look like a JPEG, PNG, or WEBP image");
+        }
+
+        long existingBytes = existingImageBytes(recipeId);
+        long usageExcludingThisRecipe = currentImageUsageBytes(requesterUserId) - existingBytes;
+        if (usageExcludingThisRecipe + bytes.length > imagesProperties.perUserQuotaBytes()) {
+            throw new ConflictException("You've reached your recipe-image storage limit");
+        }
+
         try {
             Files.createDirectories(IMAGE_DIR);
-            Path target = IMAGE_DIR.resolve(recipeId + "." + extension);
-            file.transferTo(target);
+            // Clear out any existing file for this recipe first, under any extension -- a
+            // same-recipe re-upload that changes format (e.g. jpg -> png) would otherwise leave
+            // the old file behind forever, still on disk and still counted against the quota.
+            deleteImageFilesIfAny(recipeId);
+            Files.write(IMAGE_DIR.resolve(recipeId + "." + extension), bytes);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to save recipe image", e);
         }
@@ -150,6 +182,68 @@ public class RecipeService {
         recipe.setImageUrl("/recipe-images/" + recipeId + "." + extension + "?t=" + System.currentTimeMillis());
         recipe = recipeRepository.save(recipe);
         return toResponse(recipe, recipeIngredientRepository.findByRecipeId(recipeId), recipeTagRepository.findByRecipeId(recipeId));
+    }
+
+    private String sniffImageExtension(byte[] bytes) {
+        if (startsWith(bytes, PNG_MAGIC)) {
+            return "png";
+        }
+        if (startsWith(bytes, JPEG_MAGIC)) {
+            return "jpg";
+        }
+        // WEBP: "RIFF" (bytes 0-3), then a 4-byte chunk size, then "WEBP" (bytes 8-11).
+        if (bytes.length >= 12
+                && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
+                && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P') {
+            return "webp";
+        }
+        return null;
+    }
+
+    private boolean startsWith(byte[] bytes, byte[] prefix) {
+        if (bytes.length < prefix.length) {
+            return false;
+        }
+        for (int i = 0; i < prefix.length; i++) {
+            if (bytes[i] != prefix[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void deleteImageFilesIfAny(UUID recipeId) {
+        for (String ext : IMAGE_EXTENSIONS) {
+            try {
+                Files.deleteIfExists(IMAGE_DIR.resolve(recipeId + "." + ext));
+            } catch (IOException e) {
+                // Best-effort cleanup; an orphaned file is a disk-space nuisance, not a correctness
+                // problem (nothing will ever reference recipeId again once its row is gone/replaced).
+            }
+        }
+    }
+
+    private long existingImageBytes(UUID recipeId) {
+        for (String ext : IMAGE_EXTENSIONS) {
+            Path path = IMAGE_DIR.resolve(recipeId + "." + ext);
+            if (Files.exists(path)) {
+                try {
+                    return Files.size(path);
+                } catch (IOException e) {
+                    return 0;
+                }
+            }
+        }
+        return 0;
+    }
+
+    /** Sums the on-disk size of every image file across every recipe this user owns. Recipes are
+     * globally visible, not household-scoped (see {@link Recipe}'s own doc comment), so this is
+     * necessarily a per-*user* quota rather than per-household. */
+    private long currentImageUsageBytes(UUID userId) {
+        return recipeRepository.findByCreatedByUserId(userId).stream()
+                .mapToLong(r -> existingImageBytes(r.getId()))
+                .sum();
     }
 
     private Recipe requireOwnedRecipe(UUID recipeId, UUID requesterUserId) {

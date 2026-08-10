@@ -1,5 +1,7 @@
 package com.dietscheduler.backend.household;
 
+import com.dietscheduler.backend.common.RateLimiterService;
+import com.dietscheduler.backend.config.RateLimitProperties;
 import com.dietscheduler.backend.household.dto.CreateHouseholdRequest;
 import com.dietscheduler.backend.household.dto.HouseholdResponse;
 import com.dietscheduler.backend.household.dto.InviteCodeResponse;
@@ -15,9 +17,14 @@ import java.util.UUID;
 public class HouseholdController {
 
     private final HouseholdService householdService;
+    private final RateLimiterService rateLimiterService;
+    private final RateLimitProperties rateLimitProperties;
 
-    public HouseholdController(HouseholdService householdService) {
+    public HouseholdController(HouseholdService householdService, RateLimiterService rateLimiterService,
+                                RateLimitProperties rateLimitProperties) {
         this.householdService = householdService;
+        this.rateLimiterService = rateLimiterService;
+        this.rateLimitProperties = rateLimitProperties;
     }
 
     @PostMapping
@@ -38,8 +45,16 @@ public class HouseholdController {
         return new InviteCodeResponse(householdService.getInviteCodeForOwner(id, userId));
     }
 
+    @PostMapping("/{id}/invite/regenerate")
+    public InviteCodeResponse regenerateInvite(@AuthenticationPrincipal UUID userId, @PathVariable UUID id) {
+        return new InviteCodeResponse(householdService.regenerateInviteCode(id, userId));
+    }
+
     @PostMapping("/join/{inviteCode}")
     public HouseholdResponse join(@AuthenticationPrincipal UUID userId, @PathVariable String inviteCode) {
+        // Invite codes are 8 chars from a 32-symbol alphabet (2^40) -- capped per-user so a single
+        // authenticated account can't brute-force through the space at will.
+        rateLimiterService.requireWithinLimit(userId + ":household-join", rateLimitProperties.householdJoinPerMinute());
         HouseholdMember membership = householdService.joinByInviteCode(inviteCode, userId);
         Household household = householdService.getHouseholdForMember(membership.getHouseholdId(), userId);
         return householdService.toResponse(household);

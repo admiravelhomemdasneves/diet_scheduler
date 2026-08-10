@@ -1,8 +1,10 @@
 package com.dietscheduler.backend.pantry;
 
+import com.dietscheduler.backend.config.HttpClientProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -17,17 +19,27 @@ public class OpenFoodFactsClient {
     private static final Logger log = LoggerFactory.getLogger(OpenFoodFactsClient.class);
     private static final String FIELDS = "code,product_name,image_front_small_url,image_small_url,categories,quantity,nutriments";
 
-    private final RestClient restClient = RestClient.builder()
-            .baseUrl("https://world.openfoodfacts.org")
-            .defaultHeader("User-Agent", "DietScheduler/0.1 (dev; contact: dev@dietscheduler.local)")
-            .build();
-
+    private final RestClient restClient;
     // Product-name text search lives on a separate subdomain (the newer Search-a-licious API);
     // the legacy world.openfoodfacts.org/cgi/search.pl endpoint has become unreliable.
-    private final RestClient searchRestClient = RestClient.builder()
-            .baseUrl("https://search.openfoodfacts.org")
-            .defaultHeader("User-Agent", "DietScheduler/0.1 (dev; contact: dev@dietscheduler.local)")
-            .build();
+    private final RestClient searchRestClient;
+
+    public OpenFoodFactsClient(HttpClientProperties httpClientProperties) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(httpClientProperties.connectTimeoutMs());
+        requestFactory.setReadTimeout(httpClientProperties.readTimeoutMs());
+
+        this.restClient = RestClient.builder()
+                .baseUrl("https://world.openfoodfacts.org")
+                .defaultHeader("User-Agent", "DietScheduler/0.1 (dev; contact: dev@dietscheduler.local)")
+                .requestFactory(requestFactory)
+                .build();
+        this.searchRestClient = RestClient.builder()
+                .baseUrl("https://search.openfoodfacts.org")
+                .defaultHeader("User-Agent", "DietScheduler/0.1 (dev; contact: dev@dietscheduler.local)")
+                .requestFactory(requestFactory)
+                .build();
+    }
 
     public Optional<Product> lookup(String barcode) {
         try {

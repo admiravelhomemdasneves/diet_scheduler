@@ -14,4 +14,6 @@ public interface RecipeRepository extends JpaRepository<Recipe, UUID> {
     List<Recipe> findAllVisibleTo(@Param("userId") UUID userId);
 
     Optional<Recipe> findFirstByNameIgnoreCaseAndCreatedByUserId(String name, UUID createdByUserId);
+
+    List<Recipe> findByCreatedByUserId(UUID createdByUserId);
 }

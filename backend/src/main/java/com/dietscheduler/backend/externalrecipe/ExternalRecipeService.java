@@ -1,6 +1,7 @@
 package com.dietscheduler.backend.externalrecipe;
 
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.config.HttpClientProperties;
 import com.dietscheduler.backend.externalrecipe.dto.ExternalRecipeDetail;
 import com.dietscheduler.backend.externalrecipe.dto.ExternalRecipeIngredient;
 import com.dietscheduler.backend.pantry.OpenFoodFactsClient;
@@ -14,6 +15,7 @@ import com.dietscheduler.backend.recipe.dto.CreateRecipeRequest;
 import com.dietscheduler.backend.recipe.dto.RecipeIngredientRequest;
 import com.dietscheduler.backend.recipe.dto.RecipeResponse;
 import com.dietscheduler.backend.recipe.dto.RecipeTagRequest;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -23,6 +25,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,13 +48,21 @@ public class ExternalRecipeService {
     private final RecipeService recipeService;
     private final RecipeRepository recipeRepository;
     private final OpenFoodFactsClient openFoodFactsClient;
+    private final Executor externalApiExecutor;
+    private final long perLookupTimeoutMs;
 
     public ExternalRecipeService(TheMealDbClient client, RecipeService recipeService, RecipeRepository recipeRepository,
-                                  OpenFoodFactsClient openFoodFactsClient) {
+                                  OpenFoodFactsClient openFoodFactsClient,
+                                  @Qualifier("externalApiExecutor") Executor externalApiExecutor,
+                                  HttpClientProperties httpClientProperties) {
         this.client = client;
         this.recipeService = recipeService;
         this.recipeRepository = recipeRepository;
         this.openFoodFactsClient = openFoodFactsClient;
+        this.externalApiExecutor = externalApiExecutor;
+        // A little slack on top of the HTTP client's own read timeout so a call that's about to
+        // legitimately finish isn't cut off by this timeout first.
+        this.perLookupTimeoutMs = httpClientProperties.connectTimeoutMs() + httpClientProperties.readTimeoutMs() + 1000L;
     }
 
     /** Live preview of an external recipe -- nothing is saved. */
@@ -65,9 +77,15 @@ public class ExternalRecipeService {
 
         // One Open Food Facts search per ingredient, run concurrently -- sequentially this would
         // be several seconds for a typical 8-15-ingredient recipe. Nothing is persisted; this is
-        // purely to estimate nutrition for a recipe the household hasn't favorited (yet).
+        // purely to estimate nutrition for a recipe the household hasn't favorited (yet). Runs on
+        // a small bounded pool (not the JVM-wide common ForkJoinPool, which blocking HTTP calls
+        // here would otherwise starve for every other CompletableFuture/parallel stream in the
+        // process), and each lookup individually times out and degrades to "no nutrition data for
+        // this ingredient" rather than one slow upstream call stalling the whole preview.
         List<CompletableFuture<NutritionEstimator.IngredientNutrition>> futures = parsed.stream()
-                .map(pi -> CompletableFuture.supplyAsync(() -> lookupNutrition(pi)))
+                .map(pi -> CompletableFuture.supplyAsync(() -> lookupNutrition(pi), externalApiExecutor)
+                        .orTimeout(perLookupTimeoutMs, TimeUnit.MILLISECONDS)
+                        .exceptionally(ex -> emptyNutrition(pi)))
                 .toList();
         List<NutritionEstimator.IngredientNutrition> nutritionItems = futures.stream().map(CompletableFuture::join).toList();
         RecipeResponse.NutritionEstimate estimate = NutritionEstimator.estimate(nutritionItems, DEFAULT_SERVINGS);
@@ -85,12 +103,19 @@ public class ExternalRecipeService {
     private NutritionEstimator.IngredientNutrition lookupNutrition(ParsedIngredient pi) {
         List<OpenFoodFactsClient.Product> results = openFoodFactsClient.search(pi.name());
         if (results.isEmpty()) {
-            return new NutritionEstimator.IngredientNutrition(pi.measure().quantity(), pi.measure().unit(), null, null, null, null);
+            return emptyNutrition(pi);
         }
         OpenFoodFactsClient.Nutriments n = results.get(0).nutriments();
         return new NutritionEstimator.IngredientNutrition(pi.measure().quantity(), pi.measure().unit(),
                 n != null ? n.energyKcal100g() : null, n != null ? n.proteins100g() : null,
                 n != null ? n.carbohydrates100g() : null, n != null ? n.fat100g() : null);
+    }
+
+    /** Same "no data for this ingredient" shape used both when Open Food Facts has no match and
+     * when the lookup times out -- NutritionEstimator already treats a null-nutrition entry as
+     * "skip this ingredient, flag the estimate incomplete" rather than a hard failure. */
+    private NutritionEstimator.IngredientNutrition emptyNutrition(ParsedIngredient pi) {
+        return new NutritionEstimator.IngredientNutrition(pi.measure().quantity(), pi.measure().unit(), null, null, null, null);
     }
 
     private record ParsedIngredient(String name, ParsedMeasure measure) {

@@ -1,5 +1,6 @@
 package com.dietscheduler.backend.household;
 
+import com.dietscheduler.backend.common.ConflictException;
 import com.dietscheduler.backend.common.ForbiddenException;
 import com.dietscheduler.backend.common.NotFoundException;
 import com.dietscheduler.backend.household.dto.HouseholdResponse;
@@ -88,11 +89,18 @@ public class HouseholdService {
         return household;
     }
 
+    /** Checks membership before existence, and reports both failure modes identically ("not a
+     * member") -- checking existence first would let a caller distinguish "this household doesn't
+     * exist" from "it exists but you're not in it" purely from the HTTP status, which is an
+     * unnecessary existence oracle for households the caller has no business knowing about. */
     public Household getHouseholdForMember(UUID householdId, UUID requesterUserId) {
-        Household household = householdRepository.findById(householdId)
+        HouseholdMember membership = householdMemberRepository.findByHouseholdIdAndUserId(householdId, requesterUserId)
+                .orElseThrow(() -> new ForbiddenException("Not a member of this household"));
+        // The household is guaranteed to exist here: this membership row can only exist if it did
+        // at creation time, and nothing in this codebase deletes a household without also deleting
+        // its household_member rows in the same transaction (see HouseholdService.deleteHouseholdData).
+        return householdRepository.findById(membership.getHouseholdId())
                 .orElseThrow(() -> new NotFoundException("Household not found"));
-        requireMembership(householdId, requesterUserId);
-        return household;
     }
 
     public List<HouseholdMember> getMembers(UUID householdId) {
@@ -124,13 +132,30 @@ public class HouseholdService {
     }
 
     public String getInviteCodeForOwner(UUID householdId, UUID requesterUserId) {
-        Household household = householdRepository.findById(householdId)
-                .orElseThrow(() -> new NotFoundException("Household not found"));
         HouseholdMember membership = householdMemberRepository.findByHouseholdIdAndUserId(householdId, requesterUserId)
                 .orElseThrow(() -> new ForbiddenException("Not a member of this household"));
         if (membership.getRole() != HouseholdRole.OWNER) {
             throw new ForbiddenException("Only the household owner can view/regenerate the invite code");
         }
+        Household household = householdRepository.findById(membership.getHouseholdId())
+                .orElseThrow(() -> new NotFoundException("Household not found"));
+        return household.getInviteCode();
+    }
+
+    /** Owner-only. Invalidates the current invite code and issues a new one -- e.g. after
+     * accidentally sharing it somewhere public, or just as routine hygiene, since the code itself
+     * never expires or rotates on its own otherwise. */
+    @Transactional
+    public String regenerateInviteCode(UUID householdId, UUID requesterUserId) {
+        HouseholdMember membership = householdMemberRepository.findByHouseholdIdAndUserId(householdId, requesterUserId)
+                .orElseThrow(() -> new ForbiddenException("Not a member of this household"));
+        if (membership.getRole() != HouseholdRole.OWNER) {
+            throw new ForbiddenException("Only the household owner can regenerate the invite code");
+        }
+        Household household = householdRepository.findById(membership.getHouseholdId())
+                .orElseThrow(() -> new NotFoundException("Household not found"));
+        household.setInviteCode(generateUniqueInviteCode());
+        householdRepository.save(household);
         return household.getInviteCode();
     }
 
@@ -158,13 +183,28 @@ public class HouseholdService {
      * its data) is torn down immediately -- an abandoned household with zero members has no owner
      * left to manage or delete it later, so leaving the empty one behind would just be permanent
      * clutter with no way for anyone to clean it up.
+     *
+     * The one case this refuses: the sole OWNER leaving while other MEMBERs remain. There's no
+     * ownership-transfer flow yet, so allowing that would strand the survivors -- nobody left who
+     * can view/regenerate the invite code (owner-only) or delete the household. Deleting it
+     * outright, or waiting until you're the last one left, are the two ways out for now.
      */
     @Transactional
     public void leaveHousehold(UUID householdId, UUID userId) {
         HouseholdMember membership = householdMemberRepository.findByHouseholdIdAndUserId(householdId, userId)
                 .orElseThrow(() -> new NotFoundException("Not a member of this household"));
+
+        boolean otherMembersRemain = householdMemberRepository.findByHouseholdId(householdId).stream()
+                .anyMatch(m -> !m.getUserId().equals(userId));
+        if (membership.getRole() == HouseholdRole.OWNER && otherMembersRemain) {
+            throw new ConflictException("You're the only owner and other members remain. "
+                    + "Delete the household instead, or leave once you're the last member.");
+        }
+
         householdMemberRepository.delete(membership);
-        if (householdMemberRepository.findByHouseholdId(householdId).isEmpty()) {
+        if (otherMembersRemain) {
+            socketRegistry.closeSessionsForUser(householdId, userId);
+        } else {
             deleteHouseholdData(householdId);
         }
     }
@@ -196,6 +236,10 @@ public class HouseholdService {
         householdTasteRepository.deleteByHouseholdId(householdId);
         householdMemberRepository.deleteByHouseholdId(householdId);
         householdRepository.deleteById(householdId);
+        // Any member still actively connected (owner-initiated delete while others are using the
+        // app live, or the empty-household auto-cascade from leaveHousehold) gets disconnected --
+        // otherwise they'd keep receiving/being able to send events for a household that's gone.
+        socketRegistry.closeAll(householdId);
     }
 
     private void broadcastDeleted(UUID householdId) {

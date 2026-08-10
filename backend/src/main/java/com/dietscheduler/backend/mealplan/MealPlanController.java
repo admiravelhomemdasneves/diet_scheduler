@@ -1,5 +1,7 @@
 package com.dietscheduler.backend.mealplan;
 
+import com.dietscheduler.backend.common.RateLimiterService;
+import com.dietscheduler.backend.config.RateLimitProperties;
 import com.dietscheduler.backend.mealplan.dto.AutoGenerateScheduleRequest;
 import com.dietscheduler.backend.mealplan.dto.CreateMealPlanRequest;
 import com.dietscheduler.backend.mealplan.dto.DayNutritionSummaryResponse;
@@ -18,9 +20,14 @@ import java.util.UUID;
 public class MealPlanController {
 
     private final MealPlanService mealPlanService;
+    private final RateLimiterService rateLimiterService;
+    private final RateLimitProperties rateLimitProperties;
 
-    public MealPlanController(MealPlanService mealPlanService) {
+    public MealPlanController(MealPlanService mealPlanService, RateLimiterService rateLimiterService,
+                               RateLimitProperties rateLimitProperties) {
         this.mealPlanService = mealPlanService;
+        this.rateLimiterService = rateLimiterService;
+        this.rateLimitProperties = rateLimitProperties;
     }
 
     @GetMapping("/households/{householdId}/meal-plan")
@@ -51,6 +58,7 @@ public class MealPlanController {
     @PostMapping("/households/{householdId}/meal-plan/auto-generate")
     public List<MealPlanResponse> autoGenerate(@AuthenticationPrincipal UUID userId, @PathVariable UUID householdId,
                                                 @Valid @RequestBody AutoGenerateScheduleRequest request) {
+        rateLimiterService.requireWithinLimit(userId + ":auto-generate", rateLimitProperties.autoGeneratePerMinute());
         return mealPlanService.autoGenerateSchedule(householdId, userId, request);
     }
 

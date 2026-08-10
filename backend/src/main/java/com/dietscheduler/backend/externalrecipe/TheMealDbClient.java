@@ -1,9 +1,14 @@
 package com.dietscheduler.backend.externalrecipe;
 
+import com.dietscheduler.backend.config.HttpClientProperties;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,27 +23,49 @@ import java.util.Optional;
 @Service
 public class TheMealDbClient {
 
-    private final RestClient restClient = RestClient.builder()
-            .baseUrl("https://www.themealdb.com/api/json/v1/1")
-            .build();
+    private static final Logger log = LoggerFactory.getLogger(TheMealDbClient.class);
+
+    private final RestClient restClient;
+
+    public TheMealDbClient(HttpClientProperties httpClientProperties) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(httpClientProperties.connectTimeoutMs());
+        requestFactory.setReadTimeout(httpClientProperties.readTimeoutMs());
+        this.restClient = RestClient.builder()
+                .baseUrl("https://www.themealdb.com/api/json/v1/1")
+                .requestFactory(requestFactory)
+                .build();
+    }
 
     public List<Meal> search(String query) {
-        MealDbResponse response = restClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/search.php").queryParam("s", query).build())
-                .retrieve()
-                .body(MealDbResponse.class);
-        return response == null || response.meals() == null ? List.of() : response.meals();
+        try {
+            MealDbResponse response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/search.php").queryParam("s", query).build())
+                    .retrieve()
+                    .body(MealDbResponse.class);
+            return response == null || response.meals() == null ? List.of() : response.meals();
+        } catch (RestClientException e) {
+            // Matches OpenFoodFactsClient's graceful-degradation pattern: an upstream outage or
+            // timeout degrades external recipe search/import to "found nothing" rather than a 500.
+            log.warn("TheMealDB search failed for \"{}\": {}", query, e.getMessage());
+            return List.of();
+        }
     }
 
     public Optional<Meal> lookup(String externalId) {
-        MealDbResponse response = restClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/lookup.php").queryParam("i", externalId).build())
-                .retrieve()
-                .body(MealDbResponse.class);
-        if (response == null || response.meals() == null || response.meals().isEmpty()) {
+        try {
+            MealDbResponse response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/lookup.php").queryParam("i", externalId).build())
+                    .retrieve()
+                    .body(MealDbResponse.class);
+            if (response == null || response.meals() == null || response.meals().isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(response.meals().get(0));
+        } catch (RestClientException e) {
+            log.warn("TheMealDB lookup failed for {}: {}", externalId, e.getMessage());
             return Optional.empty();
         }
-        return Optional.of(response.meals().get(0));
     }
 
     private record MealDbResponse(List<Meal> meals) {

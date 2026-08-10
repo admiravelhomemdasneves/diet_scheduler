@@ -57,7 +57,15 @@ dietscheduler:
     read-timeout-ms: ${DIETSCHEDULER_HTTP_READ_TIMEOUT_MS:5000}
   images:
     max-bytes: ${DIETSCHEDULER_IMAGE_MAX_BYTES:3145728} # 3 MB per file
-    per-household-quota-bytes: ${DIETSCHEDULER_IMAGE_QUOTA_BYTES:209715200} # 200 MB per household
+    # Recipes are globally visible, not owned by a household (see Recipe's own doc comment), so
+    # this is a per-*user* quota (the closest equivalent the data model actually has), not per-household.
+    per-user-quota-bytes: ${DIETSCHEDULER_IMAGE_QUOTA_BYTES:209715200} # 200 MB per user
+  rate-limit:
+    external-recipe-per-minute: ${DIETSCHEDULER_RATE_LIMIT_EXTERNAL_RECIPE:30}
+    barcode-scan-per-minute: ${DIETSCHEDULER_RATE_LIMIT_BARCODE_SCAN:30}
+    image-upload-per-minute: ${DIETSCHEDULER_RATE_LIMIT_IMAGE_UPLOAD:10}
+    household-join-per-minute: ${DIETSCHEDULER_RATE_LIMIT_HOUSEHOLD_JOIN:10}
+    auto-generate-per-minute: ${DIETSCHEDULER_RATE_LIMIT_AUTO_GENERATE:10}
 
 logging:
   level:

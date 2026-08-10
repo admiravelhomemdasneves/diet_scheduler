@@ -1,5 +1,7 @@
 package com.dietscheduler.backend.recipe;
 
+import com.dietscheduler.backend.common.RateLimiterService;
+import com.dietscheduler.backend.config.RateLimitProperties;
 import com.dietscheduler.backend.recipe.dto.CreateRecipeRequest;
 import com.dietscheduler.backend.recipe.dto.RecipeResponse;
 import jakarta.validation.Valid;
@@ -16,9 +18,14 @@ import java.util.UUID;
 public class RecipeController {
 
     private final RecipeService recipeService;
+    private final RateLimiterService rateLimiterService;
+    private final RateLimitProperties rateLimitProperties;
 
-    public RecipeController(RecipeService recipeService) {
+    public RecipeController(RecipeService recipeService, RateLimiterService rateLimiterService,
+                             RateLimitProperties rateLimitProperties) {
         this.recipeService = recipeService;
+        this.rateLimiterService = rateLimiterService;
+        this.rateLimitProperties = rateLimitProperties;
     }
 
     @GetMapping
@@ -55,6 +62,7 @@ public class RecipeController {
     @PostMapping("/{id}/image")
     public RecipeResponse uploadImage(@AuthenticationPrincipal UUID userId, @PathVariable UUID id,
                                        @RequestParam("file") MultipartFile file) {
+        rateLimiterService.requireWithinLimit(userId + ":image-upload", rateLimitProperties.imageUploadPerMinute());
         return recipeService.updateImage(id, userId, file);
     }
 }
