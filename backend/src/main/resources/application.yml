@@ -1,0 +1,64 @@
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+spring:
+  application:
+    name: dietscheduler-backend
+  datasource:
+    url: ${DIETSCHEDULER_DB_URL}
+    username: ${DIETSCHEDULER_DB_USER}
+    password: ${DIETSCHEDULER_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DIETSCHEDULER_DB_POOL_MAX:10}
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      # The default profile is deliberately strict: it refuses to start against a schema that
+      # doesn't already match the entities, rather than silently altering it. Local/LAN dev runs
+      # with SPRING_PROFILES_ACTIVE=dev (see application-dev.yml), which relaxes this back to
+      # `update`. See phase-11 in the production-readiness plan for replacing this with Flyway.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  jackson:
+    default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+dietscheduler:
+  jwt:
+    # `secret` is intentionally NOT bound here. It comes from the DIETSCHEDULER_JWT_SECRET env
+    # var via Spring's relaxed binding directly into JwtProperties (see JwtProperties.java),
+    # which fails startup with a readable message if it's unset or a known placeholder. Writing
+    # `secret: ${DIETSCHEDULER_JWT_SECRET}` here instead would fail with a much less readable
+    # "could not resolve placeholder" error, and before validation ever runs.
+    expiration-minutes: ${DIETSCHEDULER_JWT_EXPIRATION_MINUTES:43200} # 30 days
+  google:
+    # Comma-separated OAuth client IDs accepted as valid audiences (web/android/ios client id).
+    # These are public identifiers, not secrets.
+    client-ids: ${DIETSCHEDULER_GOOGLE_CLIENT_IDS:}
+  cors:
+    # Comma-separated browser origins allowed to call the API. Empty by default -- the mobile
+    # app is not a browser and doesn't need CORS at all; this only matters for a future web client.
+    allowed-origins: ${DIETSCHEDULER_CORS_ORIGINS:}
+  limits:
+    max-plan-range-days: ${DIETSCHEDULER_MAX_PLAN_RANGE_DAYS:62}
+    max-lookahead-days: ${DIETSCHEDULER_MAX_LOOKAHEAD_DAYS:366}
+  http-client:
+    connect-timeout-ms: ${DIETSCHEDULER_HTTP_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${DIETSCHEDULER_HTTP_READ_TIMEOUT_MS:5000}
+  images:
+    max-bytes: ${DIETSCHEDULER_IMAGE_MAX_BYTES:3145728} # 3 MB per file
+    per-household-quota-bytes: ${DIETSCHEDULER_IMAGE_QUOTA_BYTES:209715200} # 200 MB per household
+
+logging:
+  level:
+    com.dietscheduler: ${DIETSCHEDULER_LOG_LEVEL:INFO}

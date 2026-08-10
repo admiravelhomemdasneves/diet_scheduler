@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dietscheduler-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env -- copy .env.example if you haven't}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env -- copy .env.example if you haven't}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env -- copy .env.example if you haven't}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Deliberately no host `ports:` mapping. The backend reaches this over the Docker-internal
+    # network via the `postgres` service hostname regardless, and exposing 5432 on the host has
+    # previously triggered a Windows NAT/Hyper-V port-reservation bug (WSAEACCES) after a Docker
+    # restart. Use `docker compose exec postgres psql -U ... -d ...` for direct DB access.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: dietscheduler-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      DIETSCHEDULER_DB_URL: ${DIETSCHEDULER_DB_URL:?set DIETSCHEDULER_DB_URL in .env -- copy .env.example if you haven't}
+      DIETSCHEDULER_DB_USER: ${DIETSCHEDULER_DB_USER:?set DIETSCHEDULER_DB_USER in .env -- copy .env.example if you haven't}
+      DIETSCHEDULER_DB_PASSWORD: ${DIETSCHEDULER_DB_PASSWORD:?set DIETSCHEDULER_DB_PASSWORD in .env -- copy .env.example if you haven't}
+      DIETSCHEDULER_JWT_SECRET: ${DIETSCHEDULER_JWT_SECRET:?set DIETSCHEDULER_JWT_SECRET in .env -- see .env.example for how to generate one}
+    ports:
+      # 0.0.0.0 (not 127.0.0.1) is required so a phone on the same WiFi can reach this over LAN.
+      - "0.0.0.0:8080:8080"
+    volumes:
+      - recipe_images:/app/recipe-images
+
+volumes:
+  pgdata:
+  recipe_images:

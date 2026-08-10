@@ -1,0 +1,13 @@
+# Activated via SPRING_PROFILES_ACTIVE=dev (the default in .env.example). Dev-only conveniences
+# layered on top of application.yml -- never enable this profile against real user data.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    com.dietscheduler: DEBUG

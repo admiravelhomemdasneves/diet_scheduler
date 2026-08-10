@@ -1,0 +1,222 @@
+package com.dietscheduler.backend.household;
+
+import com.dietscheduler.backend.common.ForbiddenException;
+import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.household.dto.HouseholdResponse;
+import com.dietscheduler.backend.household.dto.MemberResponse;
+import com.dietscheduler.backend.mealplan.MealPlan;
+import com.dietscheduler.backend.mealplan.MealPlanPortionRepository;
+import com.dietscheduler.backend.mealplan.MealPlanRepository;
+import com.dietscheduler.backend.pantry.IngredientRepository;
+import com.dietscheduler.backend.pantry.PantryItemRepository;
+import com.dietscheduler.backend.preferences.HouseholdAllergyRepository;
+import com.dietscheduler.backend.preferences.HouseholdTasteRepository;
+import com.dietscheduler.backend.shoppinglist.IgnoredMissingIngredientRepository;
+import com.dietscheduler.backend.shoppinglist.ShoppingListItemRepository;
+import com.dietscheduler.backend.user.User;
+import com.dietscheduler.backend.user.UserRepository;
+import com.dietscheduler.backend.ws.HouseholdSocketRegistry;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.security.SecureRandom;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Service
+public class HouseholdService {
+
+    private static final String INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+    private static final int INVITE_CODE_LENGTH = 8;
+    private final SecureRandom random = new SecureRandom();
+
+    private final HouseholdRepository householdRepository;
+    private final HouseholdMemberRepository householdMemberRepository;
+    private final UserRepository userRepository;
+    private final HouseholdAllergyRepository householdAllergyRepository;
+    private final HouseholdTasteRepository householdTasteRepository;
+    private final PantryItemRepository pantryItemRepository;
+    private final IngredientRepository ingredientRepository;
+    private final MealPlanRepository mealPlanRepository;
+    private final MealPlanPortionRepository mealPlanPortionRepository;
+    private final ShoppingListItemRepository shoppingListItemRepository;
+    private final IgnoredMissingIngredientRepository ignoredMissingIngredientRepository;
+    private final HouseholdSocketRegistry socketRegistry;
+    private final ObjectMapper objectMapper;
+
+    public HouseholdService(HouseholdRepository householdRepository, HouseholdMemberRepository householdMemberRepository,
+                             UserRepository userRepository, HouseholdAllergyRepository householdAllergyRepository,
+                             HouseholdTasteRepository householdTasteRepository, PantryItemRepository pantryItemRepository,
+                             IngredientRepository ingredientRepository, MealPlanRepository mealPlanRepository,
+                             MealPlanPortionRepository mealPlanPortionRepository, ShoppingListItemRepository shoppingListItemRepository,
+                             IgnoredMissingIngredientRepository ignoredMissingIngredientRepository,
+                             HouseholdSocketRegistry socketRegistry, ObjectMapper objectMapper) {
+        this.householdRepository = householdRepository;
+        this.householdMemberRepository = householdMemberRepository;
+        this.userRepository = userRepository;
+        this.householdAllergyRepository = householdAllergyRepository;
+        this.householdTasteRepository = householdTasteRepository;
+        this.pantryItemRepository = pantryItemRepository;
+        this.ingredientRepository = ingredientRepository;
+        this.mealPlanRepository = mealPlanRepository;
+        this.mealPlanPortionRepository = mealPlanPortionRepository;
+        this.shoppingListItemRepository = shoppingListItemRepository;
+        this.ignoredMissingIngredientRepository = ignoredMissingIngredientRepository;
+        this.socketRegistry = socketRegistry;
+        this.objectMapper = objectMapper;
+    }
+
+    @Transactional
+    public Household createHousehold(UUID creatorUserId, String name) {
+        Household household = Household.builder()
+                .name(name)
+                .createdBy(creatorUserId)
+                .inviteCode(generateUniqueInviteCode())
+                .build();
+        household = householdRepository.save(household);
+
+        HouseholdMember owner = HouseholdMember.builder()
+                .householdId(household.getId())
+                .userId(creatorUserId)
+                .role(HouseholdRole.OWNER)
+                .build();
+        householdMemberRepository.save(owner);
+
+        return household;
+    }
+
+    public Household getHouseholdForMember(UUID householdId, UUID requesterUserId) {
+        Household household = householdRepository.findById(householdId)
+                .orElseThrow(() -> new NotFoundException("Household not found"));
+        requireMembership(householdId, requesterUserId);
+        return household;
+    }
+
+    public List<HouseholdMember> getMembers(UUID householdId) {
+        return householdMemberRepository.findByHouseholdId(householdId);
+    }
+
+    /** All households the given user currently belongs to. */
+    public List<Household> listForUser(UUID userId) {
+        List<UUID> householdIds = householdMemberRepository.findByUserId(userId).stream()
+                .map(HouseholdMember::getHouseholdId)
+                .toList();
+        return householdRepository.findAllById(householdIds);
+    }
+
+    public HouseholdResponse toResponse(Household household) {
+        List<HouseholdMember> members = getMembers(household.getId());
+        Map<UUID, User> usersById = userRepository.findAllById(members.stream().map(HouseholdMember::getUserId).toList())
+                .stream().collect(Collectors.toMap(User::getId, u -> u));
+
+        List<MemberResponse> memberResponses = members.stream()
+                .map(m -> {
+                    User u = usersById.get(m.getUserId());
+                    return new MemberResponse(m.getUserId(), u != null ? u.getDisplayName() : null,
+                            u != null ? u.getEmail() : null, m.getRole());
+                })
+                .toList();
+
+        return HouseholdResponse.from(household, memberResponses);
+    }
+
+    public String getInviteCodeForOwner(UUID householdId, UUID requesterUserId) {
+        Household household = householdRepository.findById(householdId)
+                .orElseThrow(() -> new NotFoundException("Household not found"));
+        HouseholdMember membership = householdMemberRepository.findByHouseholdIdAndUserId(householdId, requesterUserId)
+                .orElseThrow(() -> new ForbiddenException("Not a member of this household"));
+        if (membership.getRole() != HouseholdRole.OWNER) {
+            throw new ForbiddenException("Only the household owner can view/regenerate the invite code");
+        }
+        return household.getInviteCode();
+    }
+
+    @Transactional
+    public HouseholdMember joinByInviteCode(String inviteCode, UUID userId) {
+        Household household = householdRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new NotFoundException("Invalid invite code"));
+
+        return householdMemberRepository.findByHouseholdIdAndUserId(household.getId(), userId)
+                .orElseGet(() -> householdMemberRepository.save(HouseholdMember.builder()
+                        .householdId(household.getId())
+                        .userId(userId)
+                        .role(HouseholdRole.MEMBER)
+                        .build()));
+    }
+
+    public void requireMembership(UUID householdId, UUID userId) {
+        if (!householdMemberRepository.existsByHouseholdIdAndUserId(householdId, userId)) {
+            throw new ForbiddenException("Not a member of this household");
+        }
+    }
+
+    /**
+     * Removes the requester's own membership. If that was the last member, the household (and all
+     * its data) is torn down immediately -- an abandoned household with zero members has no owner
+     * left to manage or delete it later, so leaving the empty one behind would just be permanent
+     * clutter with no way for anyone to clean it up.
+     */
+    @Transactional
+    public void leaveHousehold(UUID householdId, UUID userId) {
+        HouseholdMember membership = householdMemberRepository.findByHouseholdIdAndUserId(householdId, userId)
+                .orElseThrow(() -> new NotFoundException("Not a member of this household"));
+        householdMemberRepository.delete(membership);
+        if (householdMemberRepository.findByHouseholdId(householdId).isEmpty()) {
+            deleteHouseholdData(householdId);
+        }
+    }
+
+    /** Owner-only: deletes the household and all its data outright, regardless of member count. */
+    @Transactional
+    public void deleteHousehold(UUID householdId, UUID requesterUserId) {
+        HouseholdMember membership = householdMemberRepository.findByHouseholdIdAndUserId(householdId, requesterUserId)
+                .orElseThrow(() -> new NotFoundException("Not a member of this household"));
+        if (membership.getRole() != HouseholdRole.OWNER) {
+            throw new ForbiddenException("Only the household owner can delete the household");
+        }
+        broadcastDeleted(householdId);
+        deleteHouseholdData(householdId);
+    }
+
+    /** Deletes every row scoped to this household, across every table that carries a household_id,
+     * then the household row itself. Recipes are deliberately excluded -- they're globally visible
+     * (see {@code Recipe}'s own doc comment), never owned by a household. */
+    private void deleteHouseholdData(UUID householdId) {
+        List<UUID> mealPlanIds = mealPlanRepository.findByHouseholdId(householdId).stream().map(MealPlan::getId).toList();
+        mealPlanIds.forEach(mealPlanPortionRepository::deleteByMealPlanId);
+        mealPlanRepository.deleteByHouseholdId(householdId);
+        shoppingListItemRepository.deleteByHouseholdId(householdId);
+        ignoredMissingIngredientRepository.deleteByHouseholdId(householdId);
+        pantryItemRepository.deleteByHouseholdId(householdId);
+        ingredientRepository.deleteByHouseholdId(householdId);
+        householdAllergyRepository.deleteByHouseholdId(householdId);
+        householdTasteRepository.deleteByHouseholdId(householdId);
+        householdMemberRepository.deleteByHouseholdId(householdId);
+        householdRepository.deleteById(householdId);
+    }
+
+    private void broadcastDeleted(UUID householdId) {
+        try {
+            String json = objectMapper.writeValueAsString(
+                    new HouseholdDeletedEvent(HouseholdDeletedEvent.Type.HOUSEHOLD_DELETED, householdId));
+            socketRegistry.broadcast(householdId, json);
+        } catch (Exception e) {
+            // Best-effort notification; the household is deleted either way.
+        }
+    }
+
+    private String generateUniqueInviteCode() {
+        String code;
+        do {
+            StringBuilder sb = new StringBuilder(INVITE_CODE_LENGTH);
+            for (int i = 0; i < INVITE_CODE_LENGTH; i++) {
+                sb.append(INVITE_CODE_ALPHABET.charAt(random.nextInt(INVITE_CODE_ALPHABET.length())));
+            }
+            code = sb.toString();
+        } while (householdRepository.existsByInviteCode(code));
+        return code;
+    }
+}

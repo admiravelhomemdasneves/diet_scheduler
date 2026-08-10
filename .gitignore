@@ -1,0 +1,51 @@
+# --- Java / Maven / Spring Boot (backend/) ---
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+!mobile/android/gradle/wrapper/gradle-wrapper.jar
+
+# --- Flutter / Dart (mobile/) ---
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.pub-cache/
+mobile/.pub/
+mobile/build/
+mobile/**/android/local.properties
+mobile/**/android/.gradle/
+mobile/**/android/app/debug
+mobile/**/android/app/profile
+mobile/**/android/app/release
+mobile/**/ios/Flutter/Flutter.podspec
+mobile/**/ios/Pods/
+mobile/**/ios/.symlinks/
+mobile/**/*.g.dart
+mobile/**/*.freezed.dart
+
+# --- Env / secrets ---
+.env
+*.env.local
+**/application-local.yml
+**/google-services.json
+**/GoogleService-Info.plist
+**/android/key.properties
+**/*.jks
+**/*.keystore
+mobile/dart_define/lan.json
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# --- Claude Code local settings (machine-specific permission allowlist) ---
+.claude/settings.local.json
+
+# --- Docker ---
+pgdata/
+
+# --- Local dev scratch (emulator logs, etc.) ---
+*.log
