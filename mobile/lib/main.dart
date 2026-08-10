@@ -5,6 +5,8 @@ import 'screens/home_screen.dart';
 import 'screens/household_screen.dart';
 import 'screens/sign_in_screen.dart';
 import 'state/app_state.dart';
+import 'theme/app_color_schemes.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const MyApp());
@@ -19,7 +21,10 @@ class MyApp extends StatelessWidget {
       create: (_) => AppState()..bootstrap(),
       child: MaterialApp(
         title: 'DietScheduler',
-        theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal)),
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(AppColorSchemes.light),
+        darkTheme: buildAppTheme(AppColorSchemes.dark),
+        themeMode: ThemeMode.system,
         home: const RootScreen(),
       ),
     );
