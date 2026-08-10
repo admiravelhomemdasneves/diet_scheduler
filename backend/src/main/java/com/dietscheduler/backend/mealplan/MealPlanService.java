@@ -1,7 +1,10 @@
 package com.dietscheduler.backend.mealplan;
 
 import com.dietscheduler.backend.common.ConflictException;
+import com.dietscheduler.backend.common.DateRangeValidation;
+import com.dietscheduler.backend.common.ForbiddenException;
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.config.LimitsProperties;
 import com.dietscheduler.backend.household.HouseholdMember;
 import com.dietscheduler.backend.household.HouseholdMemberRepository;
 import com.dietscheduler.backend.household.HouseholdService;
@@ -52,6 +55,7 @@ public class MealPlanService {
     private final RecipeService recipeService;
     private final HouseholdSocketRegistry socketRegistry;
     private final ObjectMapper objectMapper;
+    private final LimitsProperties limits;
 
     public MealPlanService(MealPlanRepository mealPlanRepository, MealPlanPortionRepository mealPlanPortionRepository,
                             RecipeRepository recipeRepository, RecipeIngredientRepository recipeIngredientRepository,
@@ -59,7 +63,7 @@ public class MealPlanService {
                             UserRepository userRepository, HouseholdService householdService,
                             PantryItemRepository pantryItemRepository, PantryService pantryService,
                             RecipeService recipeService,
-                            HouseholdSocketRegistry socketRegistry, ObjectMapper objectMapper) {
+                            HouseholdSocketRegistry socketRegistry, ObjectMapper objectMapper, LimitsProperties limits) {
         this.mealPlanRepository = mealPlanRepository;
         this.mealPlanPortionRepository = mealPlanPortionRepository;
         this.recipeRepository = recipeRepository;
@@ -72,10 +76,12 @@ public class MealPlanService {
         this.recipeService = recipeService;
         this.socketRegistry = socketRegistry;
         this.objectMapper = objectMapper;
+        this.limits = limits;
     }
 
     public List<MealPlanResponse> listMealPlans(UUID householdId, UUID requesterUserId, LocalDate from, LocalDate to) {
         householdService.requireMembership(householdId, requesterUserId);
+        DateRangeValidation.requireValidRange(from, to, limits.maxPlanRangeDays());
         List<MealPlan> mealPlans = mealPlanRepository.findByHouseholdIdAndDateBetween(householdId, from, to);
         if (mealPlans.isEmpty()) {
             return List.of();
@@ -102,6 +108,12 @@ public class MealPlanService {
         householdService.requireMembership(householdId, requesterUserId);
         Recipe recipe = recipeRepository.findById(request.recipeId())
                 .orElseThrow(() -> new NotFoundException("Recipe not found"));
+        // Mirrors RecipeService.getRecipe's visibility check -- without it, any household member
+        // could assign another user's private recipe to a meal slot by id, and its name/timing
+        // would then be visible to the whole household via listMealPlans/the WS broadcast below.
+        if (recipe.isPrivate() && !Objects.equals(recipe.getCreatedByUserId(), requesterUserId)) {
+            throw new ForbiddenException("This recipe is private");
+        }
 
         List<UUID> memberIds = householdMemberRepository.findByHouseholdId(householdId).stream()
                 .map(m -> m.getUserId()).toList();
@@ -147,6 +159,7 @@ public class MealPlanService {
     @Transactional
     public List<MealPlanResponse> autoGenerateSchedule(UUID householdId, UUID requesterUserId, AutoGenerateScheduleRequest request) {
         householdService.requireMembership(householdId, requesterUserId);
+        DateRangeValidation.requireValidRange(request.from(), request.to(), limits.maxPlanRangeDays());
 
         List<MealType> mealTypes = (request.mealTypes() == null || request.mealTypes().isEmpty())
                 ? List.of(MealType.values())

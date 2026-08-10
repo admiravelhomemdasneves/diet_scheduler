@@ -37,7 +37,7 @@ public class IngredientController {
     }
 
     @GetMapping("/ingredients/{id}")
-    public IngredientResponse get(@PathVariable UUID id) {
-        return IngredientResponse.from(ingredientService.getById(id));
+    public IngredientResponse get(@AuthenticationPrincipal UUID userId, @PathVariable UUID id) {
+        return IngredientResponse.from(ingredientService.getById(id, userId));
     }
 }

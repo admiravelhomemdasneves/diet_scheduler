@@ -34,7 +34,7 @@ public class PantryController {
 
     @PatchMapping("/pantry/{id}")
     public PantryItemResponse update(@AuthenticationPrincipal UUID userId, @PathVariable UUID id,
-                                      @RequestBody UpdatePantryItemRequest request) {
+                                      @Valid @RequestBody UpdatePantryItemRequest request) {
         return pantryService.update(id, userId, request);
     }
 

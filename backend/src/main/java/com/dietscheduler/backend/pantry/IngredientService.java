@@ -3,6 +3,7 @@ package com.dietscheduler.backend.pantry;
 import com.dietscheduler.backend.common.ConflictException;
 import com.dietscheduler.backend.common.ForbiddenException;
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.household.HouseholdService;
 import com.dietscheduler.backend.pantry.dto.IngredientSuggestion;
 import com.dietscheduler.backend.recipe.RecipeIngredientRepository;
 import org.springframework.stereotype.Service;
@@ -25,13 +26,16 @@ public class IngredientService {
     private final PantryItemRepository pantryItemRepository;
     private final RecipeIngredientRepository recipeIngredientRepository;
     private final OpenFoodFactsClient openFoodFactsClient;
+    private final HouseholdService householdService;
 
     public IngredientService(IngredientRepository ingredientRepository, PantryItemRepository pantryItemRepository,
-                              RecipeIngredientRepository recipeIngredientRepository, OpenFoodFactsClient openFoodFactsClient) {
+                              RecipeIngredientRepository recipeIngredientRepository, OpenFoodFactsClient openFoodFactsClient,
+                              HouseholdService householdService) {
         this.ingredientRepository = ingredientRepository;
         this.pantryItemRepository = pantryItemRepository;
         this.recipeIngredientRepository = recipeIngredientRepository;
         this.openFoodFactsClient = openFoodFactsClient;
+        this.householdService = householdService;
     }
 
     @Transactional
@@ -40,9 +44,20 @@ public class IngredientService {
                 .orElseGet(() -> createFromOpenFoodFacts(barcode));
     }
 
-    public Ingredient getById(UUID id) {
-        return ingredientRepository.findById(id)
+    /**
+     * Global (household_id == null) ingredients are visible to any authenticated user -- they're
+     * a shared reference catalog. A household-owned custom ingredient is only visible to that
+     * household's own members; without this check any authenticated user could read another
+     * household's private custom-ingredient rows (name, nutrition, image) just by guessing/
+     * incrementing a UUID, since ids aren't otherwise discoverable outside that household.
+     */
+    public Ingredient getById(UUID id, UUID requesterUserId) {
+        Ingredient ingredient = ingredientRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Ingredient not found"));
+        if (ingredient.getHouseholdId() != null) {
+            householdService.requireMembership(ingredient.getHouseholdId(), requesterUserId);
+        }
+        return ingredient;
     }
 
     /** The household's own custom ingredients first (so their edits/renames are easy to find), then Open Food Facts matches. */

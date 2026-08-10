@@ -3,6 +3,7 @@ package com.dietscheduler.backend.user;
 import com.dietscheduler.backend.common.NotFoundException;
 import com.dietscheduler.backend.user.dto.NutritionProfileResponse;
 import com.dietscheduler.backend.user.dto.UpdateNutritionProfileRequest;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -26,7 +27,7 @@ public class UserNutritionProfileController {
 
     @PatchMapping
     @Transactional
-    public NutritionProfileResponse update(@AuthenticationPrincipal UUID userId, @RequestBody UpdateNutritionProfileRequest request) {
+    public NutritionProfileResponse update(@AuthenticationPrincipal UUID userId, @Valid @RequestBody UpdateNutritionProfileRequest request) {
         User user = findUser(userId);
         if (request.gender() != null) user.setGender(request.gender());
         if (request.age() != null) user.setAge(request.age());

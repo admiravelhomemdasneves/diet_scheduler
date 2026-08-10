@@ -2,6 +2,7 @@ package com.dietscheduler.backend.notification;
 
 import com.dietscheduler.backend.notification.dto.NotificationSettingResponse;
 import com.dietscheduler.backend.notification.dto.UpdateNotificationSettingRequest;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +26,7 @@ public class NotificationSettingController {
 
     @PatchMapping
     @Transactional
-    public NotificationSettingResponse update(@AuthenticationPrincipal UUID userId, @RequestBody UpdateNotificationSettingRequest request) {
+    public NotificationSettingResponse update(@AuthenticationPrincipal UUID userId, @Valid @RequestBody UpdateNotificationSettingRequest request) {
         NotificationSetting setting = findOrCreateDefaults(userId);
         if (request.lunchTime() != null) setting.setLunchTime(request.lunchTime());
         if (request.dinnerTime() != null) setting.setDinnerTime(request.dinnerTime());

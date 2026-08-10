@@ -1,5 +1,6 @@
 package com.dietscheduler.backend.auth;
 
+import com.dietscheduler.backend.config.CorsProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,10 +24,13 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;
+    private final CorsProperties corsProperties;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, ObjectMapper objectMapper) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, ObjectMapper objectMapper,
+                           CorsProperties corsProperties) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.objectMapper = objectMapper;
+        this.corsProperties = corsProperties;
     }
 
     @Bean
@@ -60,8 +64,10 @@ public class SecurityConfig {
 
     private CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Dev-permissive CORS. Tighten to specific origins before any public deployment.
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        // Driven by DIETSCHEDULER_CORS_ORIGINS (empty by default -- see CorsProperties). The
+        // mobile app itself is unaffected either way: CORS is a browser-enforced mechanism and
+        // the app doesn't send an Origin header, so this only matters for a future web client.
+        configuration.setAllowedOriginPatterns(corsProperties.allowedOriginList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

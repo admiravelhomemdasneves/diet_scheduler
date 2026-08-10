@@ -1,6 +1,8 @@
 package com.dietscheduler.backend.shoppinglist;
 
+import com.dietscheduler.backend.common.DateRangeValidation;
 import com.dietscheduler.backend.common.NotFoundException;
+import com.dietscheduler.backend.config.LimitsProperties;
 import com.dietscheduler.backend.household.HouseholdService;
 import com.dietscheduler.backend.mealplan.MealPlan;
 import com.dietscheduler.backend.mealplan.MealPlanPortion;
@@ -51,13 +53,14 @@ public class ShoppingListService {
     private final IgnoredMissingIngredientRepository ignoredMissingIngredientRepository;
     private final HouseholdSocketRegistry socketRegistry;
     private final ObjectMapper objectMapper;
+    private final LimitsProperties limits;
 
     public ShoppingListService(ShoppingListItemRepository shoppingListItemRepository, IngredientRepository ingredientRepository,
                                 HouseholdService householdService, MealPlanRepository mealPlanRepository,
                                 MealPlanPortionRepository mealPlanPortionRepository, RecipeRepository recipeRepository,
                                 RecipeIngredientRepository recipeIngredientRepository, PantryItemRepository pantryItemRepository,
                                 IgnoredMissingIngredientRepository ignoredMissingIngredientRepository,
-                                HouseholdSocketRegistry socketRegistry, ObjectMapper objectMapper) {
+                                HouseholdSocketRegistry socketRegistry, ObjectMapper objectMapper, LimitsProperties limits) {
         this.shoppingListItemRepository = shoppingListItemRepository;
         this.ingredientRepository = ingredientRepository;
         this.householdService = householdService;
@@ -69,6 +72,7 @@ public class ShoppingListService {
         this.ignoredMissingIngredientRepository = ignoredMissingIngredientRepository;
         this.socketRegistry = socketRegistry;
         this.objectMapper = objectMapper;
+        this.limits = limits;
     }
 
     public List<ShoppingListItemResponse> list(UUID householdId, UUID requesterUserId) {
@@ -175,6 +179,7 @@ public class ShoppingListService {
     @Transactional
     public List<ShoppingListItemResponse> generate(UUID householdId, UUID requesterUserId, LocalDate from, LocalDate to) {
         householdService.requireMembership(householdId, requesterUserId);
+        DateRangeValidation.requireValidRange(from, to, limits.maxPlanRangeDays());
 
         Map<String, BigDecimal> needed = computeNeeded(householdId, from, to);
         Map<String, BigDecimal> available = computeAvailable(householdId);
@@ -212,6 +217,7 @@ public class ShoppingListService {
      */
     public List<MissingIngredientResponse> getMissingUpcoming(UUID householdId, UUID requesterUserId, int days) {
         householdService.requireMembership(householdId, requesterUserId);
+        DateRangeValidation.requireValidLookahead(days, limits.maxLookaheadDays());
         LocalDate from = LocalDate.now();
         LocalDate to = from.plusDays(Math.max(days, 1) - 1L);
 

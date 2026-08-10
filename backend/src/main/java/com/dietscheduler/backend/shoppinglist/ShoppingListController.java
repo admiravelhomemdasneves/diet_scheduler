@@ -46,7 +46,7 @@ public class ShoppingListController {
 
     @PatchMapping("/shopping-list/{id}")
     public ShoppingListItemResponse update(@AuthenticationPrincipal UUID userId, @PathVariable UUID id,
-                                            @RequestBody UpdateShoppingListItemRequest request) {
+                                            @Valid @RequestBody UpdateShoppingListItemRequest request) {
         return shoppingListService.update(id, userId, request);
     }
 
