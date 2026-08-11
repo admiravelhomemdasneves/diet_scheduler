@@ -16,7 +16,7 @@ class SignInScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.kitchen, size: 72),
+              Image.asset('assets/branding/splash_icon.png', height: 96),
               const SizedBox(height: 16),
               const Text('DietScheduler', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
