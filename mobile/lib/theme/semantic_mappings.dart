@@ -24,3 +24,39 @@ Color colorForTastePreference(BuildContext context, String preference) {
       return Theme.of(context).colorScheme.onSurfaceVariant;
   }
 }
+
+/// Container-tier pair for taste-preference chips that need a background a selected/filled
+/// chip can sit on, with guaranteed-readable label text -- replaces the old
+/// `colorForTastePreference(p).withValues(alpha: 0.3/0.35)` pattern, which alpha-blended over
+/// whatever happened to be underneath instead of using a real, contrast-checked surface.
+Color colorForTastePreferenceContainer(BuildContext context, String preference) {
+  final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+  switch (preference) {
+    case 'FAVORITE':
+      return semantic.successContainer;
+    case 'LIKED':
+      return semantic.infoContainer;
+    case 'DISLIKED':
+      return semantic.warningContainer;
+    case 'FORBIDDEN':
+      return Theme.of(context).colorScheme.errorContainer;
+    default:
+      return Theme.of(context).colorScheme.surfaceContainerHighest;
+  }
+}
+
+Color onColorForTastePreferenceContainer(BuildContext context, String preference) {
+  final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+  switch (preference) {
+    case 'FAVORITE':
+      return semantic.onSuccessContainer;
+    case 'LIKED':
+      return semantic.onInfoContainer;
+    case 'DISLIKED':
+      return semantic.onWarningContainer;
+    case 'FORBIDDEN':
+      return Theme.of(context).colorScheme.onErrorContainer;
+    default:
+      return Theme.of(context).colorScheme.onSurfaceVariant;
+  }
+}

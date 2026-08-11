@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/missing_ingredient.dart';
 import '../state/app_state.dart';
+import '../theme/app_semantic_colors.dart';
 import '../widgets/unit_dropdown.dart';
 
 class ShoppingListScreen extends StatefulWidget {
@@ -70,7 +71,11 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                   ),
                   onChanged: (v) => context.read<AppState>().toggleShoppingListItem(item.id, v ?? false),
                 )),
-            if (checked.isNotEmpty) const Padding(padding: EdgeInsets.fromLTRB(16, 16, 16, 4), child: Text('Checked', style: TextStyle(color: Colors.grey))),
+            if (checked.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                child: Text('Checked', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              ),
             ...checked.map((item) => CheckboxListTile(
                   value: item.checked,
                   title: Text(item.ingredientName ?? '(unknown)', style: const TextStyle(decoration: TextDecoration.lineThrough)),
@@ -104,9 +109,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      const Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
-        child: Text('Swipe right to add, left to ignore.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+        child: Text('Swipe right to add, left to ignore.',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
       ),
       if (_selectedMissing.isNotEmpty)
         Padding(
@@ -125,16 +131,16 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
           key: ValueKey(item.key),
           direction: DismissDirection.horizontal,
           background: Container(
-            color: Colors.green,
+            color: Theme.of(context).extension<AppSemanticColors>()!.successContainer,
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.only(left: 20),
-            child: const Icon(Icons.add_shopping_cart, color: Colors.white),
+            child: Icon(Icons.add_shopping_cart, color: Theme.of(context).extension<AppSemanticColors>()!.onSuccessContainer),
           ),
           secondaryBackground: Container(
-            color: Colors.grey,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 20),
-            child: const Icon(Icons.visibility_off, color: Colors.white),
+            child: Icon(Icons.visibility_off, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           onDismissed: (direction) {
             if (direction == DismissDirection.startToEnd) {
@@ -148,7 +154,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
             dense: true,
             selected: selected,
             selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.4),
-            leading: Icon(selected ? Icons.check_circle : Icons.warning_amber_rounded, color: selected ? Theme.of(context).colorScheme.primary : Colors.orange),
+            leading: Icon(selected ? Icons.check_circle : Icons.warning_amber_rounded,
+                color: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).extension<AppSemanticColors>()!.warning),
             title: Text(item.ingredientName ?? '(ingredient)'),
             subtitle: Text('${item.quantity} ${item.unit}'),
             onLongPress: () => setState(() {

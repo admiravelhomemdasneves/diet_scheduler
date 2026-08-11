@@ -35,7 +35,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          const Text('Local reminders scheduled on this device for today\'s meal plan.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text('Local reminders scheduled on this device for today\'s meal plan.',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Daily meal reminder'),

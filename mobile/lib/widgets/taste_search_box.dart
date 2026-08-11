@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/taste.dart';
+import '../theme/semantic_mappings.dart';
 
 /// Search-as-you-type box for adding taste preferences. New additions are tagged with whichever
 /// preference category (favorite/liked/disliked/forbidden) is selected via the chip row above the
@@ -51,16 +52,19 @@ class _TasteSearchBoxState extends State<TasteSearchBox> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Add as', style: TextStyle(fontSize: 12, color: Colors.grey)),
+        Text('Add as', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
         const SizedBox(height: 4),
         Wrap(
           spacing: 6,
           children: tastePreferences.map((p) {
             final selected = _category == p;
             return ChoiceChip(
-              label: Text(tastePreferenceLabel(p)),
+              label: Text(
+                tastePreferenceLabel(p),
+                style: selected ? TextStyle(color: onColorForTastePreferenceContainer(context, p)) : null,
+              ),
               selected: selected,
-              selectedColor: colorForTastePreference(p).withValues(alpha: 0.35),
+              selectedColor: colorForTastePreferenceContainer(context, p),
               onSelected: (_) => setState(() => _category = p),
             );
           }).toList(),
@@ -98,7 +102,7 @@ class _TasteSearchBoxState extends State<TasteSearchBox> {
           ),
         const SizedBox(height: 8),
         if (widget.selected.isEmpty)
-          const Text('No tastes added.', style: TextStyle(color: Colors.grey, fontSize: 12))
+          Text('No tastes added.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12))
         else
           Wrap(
             spacing: 8,
@@ -106,8 +110,9 @@ class _TasteSearchBoxState extends State<TasteSearchBox> {
             children: [
               for (final t in shown)
                 Chip(
-                  label: Text(t.tasteName),
-                  backgroundColor: colorForTastePreference(t.preference).withValues(alpha: 0.3),
+                  label: Text(t.tasteName, style: TextStyle(color: onColorForTastePreferenceContainer(context, t.preference))),
+                  backgroundColor: colorForTastePreferenceContainer(context, t.preference),
+                  deleteIconColor: onColorForTastePreferenceContainer(context, t.preference),
                   onDeleted: () => widget.onRemove(t.tasteId),
                 ),
               if (widget.selected.length > 3)

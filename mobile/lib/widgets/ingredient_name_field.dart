@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/ingredient.dart';
 import '../state/app_state.dart';
+import '../theme/app_semantic_colors.dart';
 
 /// Ingredient-name text field with a live, debounced search-as-you-type dropdown of Open Food
 /// Facts matches (thumbnail + name). Picking a suggestion reports it back via [onSuggestionSelected]
@@ -122,7 +123,8 @@ class _IngredientNameFieldState extends State<IngredientNameField> {
                     trailing: missingNutrition
                         ? Tooltip(
                             message: 'Nutrition data missing or incomplete',
-                            child: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 20),
+                            child: Icon(Icons.warning_amber_rounded,
+                                color: Theme.of(context).extension<AppSemanticColors>()!.warning, size: 20),
                           )
                         : null,
                     onTap: () => _select(s),

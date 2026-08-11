@@ -1,21 +1,4 @@
-import 'package:flutter/material.dart';
-
 const List<String> tastePreferences = ['FAVORITE', 'LIKED', 'DISLIKED', 'FORBIDDEN'];
-
-Color colorForTastePreference(String preference) {
-  switch (preference) {
-    case 'FAVORITE':
-      return Colors.green;
-    case 'LIKED':
-      return Colors.blue;
-    case 'DISLIKED':
-      return Colors.orange;
-    case 'FORBIDDEN':
-      return Colors.red;
-    default:
-      return Colors.grey;
-  }
-}
 
 String tastePreferenceLabel(String preference) =>
     preference.isEmpty ? preference : preference[0] + preference.substring(1).toLowerCase();

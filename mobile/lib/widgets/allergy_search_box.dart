@@ -81,7 +81,7 @@ class _AllergySearchBoxState extends State<AllergySearchBox> {
           ),
         const SizedBox(height: 8),
         if (widget.selected.isEmpty)
-          const Text('No allergies added.', style: TextStyle(color: Colors.grey, fontSize: 12))
+          Text('No allergies added.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12))
         else
           Wrap(
             spacing: 8,

@@ -98,7 +98,7 @@ class _ExternalRecipeSearchScreenState extends State<ExternalRecipeSearchScreen>
             child: _gridView ? _buildGrid(appState) : _buildList(appState),
           ),
           if (appState.errorMessage != null)
-            Padding(padding: const EdgeInsets.all(12), child: Text(appState.errorMessage!, style: const TextStyle(color: Colors.red))),
+            Padding(padding: const EdgeInsets.all(12), child: Text(appState.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
         ],
       ),
     );
@@ -130,7 +130,8 @@ class _ExternalRecipeSearchScreenState extends State<ExternalRecipeSearchScreen>
           trailing: isFavoriting
               ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
               : IconButton(
-                  icon: Icon(isFavorited ? Icons.favorite : Icons.favorite_border, color: isFavorited ? Colors.red : null),
+                  icon: Icon(isFavorited ? Icons.favorite : Icons.favorite_border,
+                      color: isFavorited ? Theme.of(context).colorScheme.primary : null),
                   tooltip: isFavorited ? 'Already saved' : 'Save to my recipes',
                   onPressed: isFavorited ? null : () => _favorite(summary),
                 ),

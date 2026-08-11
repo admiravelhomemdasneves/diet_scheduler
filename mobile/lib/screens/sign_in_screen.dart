@@ -28,7 +28,7 @@ class SignInScreen extends StatelessWidget {
               ),
               if (appState.errorMessage != null) ...[
                 const SizedBox(height: 16),
-                Text(appState.errorMessage!, style: const TextStyle(color: Colors.red)),
+                Text(appState.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
               ],
             ],
           ),

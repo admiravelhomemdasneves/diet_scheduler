@@ -1,0 +1,35 @@
+name: Color lint
+
+# Fails if any raw Colors.* literal creeps back into mobile/lib outside lib/theme/ (where the
+# hand-authored ColorSchemes/AppSemanticColors live). Landed as its own small, focused check
+# during the Phase 7 color sweep; the fuller CI workflow (mvn verify, flutter analyze/test,
+# gitleaks, etc.) is Phase 10 -- this job is written so that workflow can simply absorb it as
+# one more job, or call the same script as a step, without redoing this check.
+on:
+  push:
+    branches: [master]
+    paths: ["mobile/**"]
+  pull_request:
+    paths: ["mobile/**"]
+
+jobs:
+  no-raw-colors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for raw Colors.* usage outside lib/theme/
+        working-directory: mobile
+        run: |
+          # Plain ERE (no \b/-P) so this doesn't depend on the runner's locale supporting PCRE.
+          # AppSemanticColors./AppColorSchemes. are the only legitimate "...Colors." identifiers
+          # in this codebase and are explicitly excluded rather than relied on word-boundary matching.
+          matches=$(grep -rn 'Colors\.[A-Za-z]' --include='*.dart' lib/ \
+            | grep -v '^lib/theme/' \
+            | grep -vE 'AppSemanticColors\.|AppColorSchemes\.' \
+            || true)
+          if [ -n "$matches" ]; then
+            echo "Raw Colors.* usage found outside lib/theme/ -- use a ColorScheme/AppSemanticColors role instead:"
+            echo "$matches"
+            exit 1
+          fi
+          echo "No raw Colors.* usage outside lib/theme/."

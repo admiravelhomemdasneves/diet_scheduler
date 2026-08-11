@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/taste.dart';
 import '../state/app_state.dart';
+import '../theme/semantic_mappings.dart';
 
 /// "See all" page for a taste list (my tastes or household tastes, selected via the [selector]/
 /// [onSet]/[onRemove] closures passed in), reached from TasteSearchBox once there are more than 3.
@@ -31,7 +32,7 @@ class TasteListScreen extends StatelessWidget {
         itemBuilder: (context, i) {
           final t = entries[i];
           return ListTile(
-            leading: CircleAvatar(radius: 6, backgroundColor: colorForTastePreference(t.preference)),
+            leading: CircleAvatar(radius: 6, backgroundColor: colorForTastePreference(context, t.preference)),
             title: Text(t.tasteName),
             subtitle: Text(t.type),
             trailing: DropdownButton<String?>(

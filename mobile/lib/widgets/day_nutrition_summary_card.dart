@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/meal_plan.dart';
+import '../theme/app_semantic_colors.dart';
 
 /// Combined nutrition for a day's meal plan vs. the viewer's own daily targets -- shown on both
 /// the day-detail page (reached from the calendar) and the "Today's meals" list view.
@@ -39,12 +40,12 @@ class DayNutritionSummaryCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade800),
+                  Icon(Icons.warning_amber_rounded, size: 16, color: Theme.of(context).extension<AppSemanticColors>()!.warning),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       'One or more meals\' nutrition couldn\'t be fully determined, so this may be an underestimate.',
-                      style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).extension<AppSemanticColors>()!.warning),
                     ),
                   ),
                 ],

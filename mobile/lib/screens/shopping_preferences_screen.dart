@@ -35,7 +35,8 @@ class _ShoppingPreferencesScreenState extends State<ShoppingPreferencesScreen> {
         padding: const EdgeInsets.all(12),
         children: [
           const Text('Measurement units', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const Text('Controls which units appear in the ingredient unit picker.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text('Controls which units appear in the ingredient unit picker.',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
           const SizedBox(height: 8),
           SegmentedButton<String>(
             showSelectedIcon: false,
@@ -53,9 +54,9 @@ class _ShoppingPreferencesScreenState extends State<ShoppingPreferencesScreen> {
           ),
           const SizedBox(height: 24),
           const Text('Missing ingredients', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const Text(
+          Text(
             'How far ahead the "Missing for future recipes" section on the shopping list looks for upcoming meal plans.',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
           ),
           const SizedBox(height: 8),
           Row(children: [

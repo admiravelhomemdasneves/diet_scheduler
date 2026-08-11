@@ -37,7 +37,8 @@ class _AllergiesPreferencesScreenState extends State<AllergiesPreferencesScreen>
         padding: const EdgeInsets.all(12),
         children: [
           const Text('My allergies', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const Text('Hard exclude — recipes containing these are never shown.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text('Hard exclude — recipes containing these are never shown.',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
           const SizedBox(height: 8),
           AllergySearchBox(
             allAllergies: appState.allAllergies,
@@ -54,7 +55,8 @@ class _AllergiesPreferencesScreenState extends State<AllergiesPreferencesScreen>
           ),
           const SizedBox(height: 24),
           const Text('My tastes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const Text('Pick a category, search, then tap a match to add it.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text('Pick a category, search, then tap a match to add it.',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
           const SizedBox(height: 8),
           TasteSearchBox(
             allTastes: appState.allTastes,

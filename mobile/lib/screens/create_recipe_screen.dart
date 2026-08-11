@@ -150,7 +150,7 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
           const SizedBox(height: 16),
           const Text('Tags', style: TextStyle(fontWeight: FontWeight.bold)),
           for (final type in tastesByType.keys) ...[
-            Padding(padding: const EdgeInsets.only(top: 8, bottom: 4), child: Text(type, style: const TextStyle(color: Colors.grey))),
+            Padding(padding: const EdgeInsets.only(top: 8, bottom: 4), child: Text(type, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
             Wrap(
               spacing: 8,
               children: tastesByType[type]!.map((t) {
@@ -170,7 +170,7 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
           ),
           if (appState.errorMessage != null) ...[
             const SizedBox(height: 12),
-            Text(appState.errorMessage!, style: const TextStyle(color: Colors.red)),
+            Text(appState.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
         ],
       ),

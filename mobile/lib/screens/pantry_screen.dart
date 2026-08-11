@@ -76,7 +76,12 @@ class PantryScreen extends StatelessWidget {
                   final imageUrl = ApiConfig.resolveImageUrl(item.ingredientImageUrl);
                   return Dismissible(
                     key: ValueKey(item.id),
-                    background: Container(color: Colors.red, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20), child: const Icon(Icons.delete, color: Colors.white)),
+                    background: Container(
+                      color: Theme.of(context).colorScheme.error,
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
+                    ),
                     direction: DismissDirection.endToStart,
                     onDismissed: (_) => context.read<AppState>().deletePantryItem(item.id),
                     child: ListTile(

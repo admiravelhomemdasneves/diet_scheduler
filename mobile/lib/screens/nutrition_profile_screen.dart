@@ -37,7 +37,8 @@ class _NutritionProfileScreenState extends State<NutritionProfileScreen> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          const Text('Used by "target my nutrition" when auto-filling the meal plan.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text('Used by "target my nutrition" when auto-filling the meal plan.',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(

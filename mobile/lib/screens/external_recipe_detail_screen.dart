@@ -4,6 +4,7 @@ import '../config.dart';
 import '../models/external_recipe.dart';
 import '../models/ingredient.dart';
 import '../state/app_state.dart';
+import '../theme/app_semantic_colors.dart';
 import 'ingredient_detail_screen.dart';
 
 /// Read-only live preview of an external recipe -- nothing is saved until the user favorites it.
@@ -82,11 +83,12 @@ class _ExternalRecipeDetailScreenState extends State<ExternalRecipeDetailScreen>
           if (_favoriting)
             const Padding(
               padding: EdgeInsets.all(16),
-              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else
             IconButton(
-              icon: Icon(isFavorited ? Icons.favorite : Icons.favorite_border, color: isFavorited ? Colors.red : null),
+              icon: Icon(isFavorited ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorited ? Theme.of(context).colorScheme.primary : null),
               tooltip: isFavorited ? 'Already saved' : 'Save to my recipes',
               onPressed: isFavorited ? null : _favorite,
             ),
@@ -107,7 +109,8 @@ class _ExternalRecipeDetailScreenState extends State<ExternalRecipeDetailScreen>
                           child: Image.network(
                             imageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const ColoredBox(color: Colors.black12, child: Icon(Icons.restaurant, size: 48)),
+                            errorBuilder: (_, _, _) =>
+                                ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.restaurant, size: 48)),
                           ),
                         ),
                       ),
@@ -121,7 +124,7 @@ class _ExternalRecipeDetailScreenState extends State<ExternalRecipeDetailScreen>
                     Center(
                       child: Column(children: [
                         Text('${_detail!.servings}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        const Text('Servings', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        Text('Servings', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                       ]),
                     ),
                     if (_detail!.estimatedCaloriesPerServing != null) ...[
@@ -136,13 +139,13 @@ class _ExternalRecipeDetailScreenState extends State<ExternalRecipeDetailScreen>
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade800),
+                            Icon(Icons.warning_amber_rounded, size: 16, color: Theme.of(context).extension<AppSemanticColors>()!.warning),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 'May be an underestimate -- one or more ingredients couldn\'t be matched, are '
                                 'missing nutrition data, or use a unit that can\'t be converted for this calculation.',
-                                style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                                style: TextStyle(fontSize: 12, color: Theme.of(context).extension<AppSemanticColors>()!.warning),
                               ),
                             ),
                           ],

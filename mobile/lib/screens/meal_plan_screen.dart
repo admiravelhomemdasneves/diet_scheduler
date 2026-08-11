@@ -5,11 +5,52 @@ import '../models/household.dart';
 import '../models/meal_plan.dart';
 import '../models/recipe.dart';
 import '../state/app_state.dart';
+import '../theme/app_semantic_colors.dart';
 import '../widgets/auto_generate_dialog.dart';
 import '../widgets/day_nutrition_summary_card.dart';
 import 'day_meal_plan_screen.dart';
 import 'pick_recipe_screen.dart';
 import 'recipe_detail_screen.dart';
+
+/// Single source of truth for how a calendar day's meal-plan marker is drawn, shared by the
+/// calendar's own marker dots and the legend that explains them below it. Previously the legend
+/// hardcoded its own literal-color copy of this (a hardcoded teal, independent of the actual
+/// marker color), which silently drifted out of sync with the real marker color
+/// (colorScheme.primary) -- a duplication bug, not a color-literal bug, so simply swapping the
+/// legend's hardcoded colors for theme ones would have fixed today's mismatch while leaving the
+/// same trap for the next palette change. Routing both call sites through this one function
+/// makes that class of drift structurally impossible.
+class MealMarkerStyle {
+  final IconData icon;
+  final Color color;
+  const MealMarkerStyle(this.icon, this.color);
+}
+
+MealMarkerStyle mealMarkerStyle(BuildContext context, bool hasMeals) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return hasMeals
+      ? MealMarkerStyle(Icons.restaurant, colorScheme.primary)
+      : MealMarkerStyle(Icons.circle_outlined, colorScheme.onSurfaceVariant);
+}
+
+class MealMarkerLegendSwatch extends StatelessWidget {
+  final bool hasMeals;
+  final String label;
+  const MealMarkerLegendSwatch({required this.hasMeals, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final style = mealMarkerStyle(context, hasMeals);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(style.icon, size: 12, color: style.color),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      ],
+    );
+  }
+}
 
 enum _ViewMode { list, calendar }
 
@@ -189,12 +230,8 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
           },
           calendarBuilders: CalendarBuilders(
             markerBuilder: (context, day, events) {
-              final hasMeals = events.isNotEmpty;
-              return Icon(
-                hasMeals ? Icons.restaurant : Icons.circle_outlined,
-                size: 10,
-                color: hasMeals ? Theme.of(context).colorScheme.primary : Colors.grey.shade400,
-              );
+              final style = mealMarkerStyle(context, events.isNotEmpty);
+              return Icon(style.icon, size: 10, color: style.color);
             },
             defaultBuilder: (context, day, focusedDay) => _multiSelectDayCell(context, day),
             todayBuilder: (context, day, focusedDay) => _multiSelectDayCell(context, day),
@@ -205,13 +242,9 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.restaurant, size: 12, color: Colors.teal),
-              SizedBox(width: 4),
-              Text('Meals planned', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              SizedBox(width: 16),
-              Icon(Icons.circle_outlined, size: 12, color: Colors.grey),
-              SizedBox(width: 4),
-              Text('No meals planned', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const MealMarkerLegendSwatch(hasMeals: true, label: 'Meals planned'),
+              const SizedBox(width: 16),
+              const MealMarkerLegendSwatch(hasMeals: false, label: 'No meals planned'),
             ],
           ),
         ),
@@ -351,7 +384,7 @@ class MealSlot extends StatelessWidget {
             Icon(Icons.check_circle, size: 16, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 4),
           ],
-          Flexible(child: Text(mealType, style: const TextStyle(color: Colors.grey))),
+          Flexible(child: Text(mealType, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
         ],
       ),
     );
@@ -363,7 +396,7 @@ class MealSlot extends StatelessWidget {
         selected: selected,
         selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.4),
         leading: leading,
-        title: const Text('Tap to assign', style: TextStyle(color: Colors.grey)),
+        title: Text('Tap to assign', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         onTap: () => _assign(context),
         onLongPress: longPressHandler,
       );
@@ -382,7 +415,7 @@ class MealSlot extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (mealPlan!.cooked)
-            const Icon(Icons.check_circle, color: Colors.green)
+            Icon(Icons.check_circle, color: Theme.of(context).extension<AppSemanticColors>()!.success)
           else
             IconButton(
               icon: const Icon(Icons.restaurant),

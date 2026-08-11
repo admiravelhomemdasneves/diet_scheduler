@@ -51,7 +51,7 @@ class _DayMealPlanScreenState extends State<DayMealPlanScreen> {
         actions: [
           IconButton(
             icon: _generating
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.auto_awesome),
             tooltip: _selectedMealTypes.isNotEmpty
                 ? 'Generate for selected meals'

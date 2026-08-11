@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../config.dart';
 import '../models/recipe.dart';
 import '../state/app_state.dart';
+import '../theme/app_semantic_colors.dart';
 import 'ingredient_detail_screen.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
@@ -69,7 +70,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           if (isOwner)
             IconButton(
               icon: _uploadingPhoto
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.add_a_photo_outlined),
               tooltip: imageUrl != null ? 'Change photo' : 'Add photo',
               onPressed: _uploadingPhoto ? null : () => _pickAndUploadPhoto(recipe.id),
@@ -95,7 +96,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                 child: Image.network(
                   imageUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const ColoredBox(color: Colors.black12, child: Icon(Icons.restaurant, size: 48)),
+                  errorBuilder: (_, _, _) =>
+                      ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.restaurant, size: 48)),
                 ),
               ),
             ),
@@ -132,13 +134,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade800),
+                  Icon(Icons.warning_amber_rounded, size: 16, color: Theme.of(context).extension<AppSemanticColors>()!.warning),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       'May be an underestimate -- one or more ingredients are missing nutrition data '
                       'or use a unit that can\'t be converted for this calculation.',
-                      style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).extension<AppSemanticColors>()!.warning),
                     ),
                   ),
                 ],
@@ -199,7 +201,7 @@ class _Stat extends StatelessWidget {
     return Column(
       children: [
         Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
       ],
     );
   }

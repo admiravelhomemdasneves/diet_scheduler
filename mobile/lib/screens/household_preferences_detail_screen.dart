@@ -92,13 +92,13 @@ class _HouseholdPreferencesDetailScreenState extends State<HouseholdPreferencesD
                 leading: const CircleAvatar(child: Icon(Icons.person, size: 18)),
                 title: Text(m.displayName ?? m.email ?? m.userId),
                 subtitle: m.displayName != null && m.email != null ? Text(m.email!) : null,
-                trailing: Text(m.role, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                trailing: Text(m.role, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
               )),
           const SizedBox(height: 24),
           const Text('Household allergies', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const Text(
+          Text(
             'Inherited once from the union of members\' allergies, then editable just for this household.',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
           ),
           const SizedBox(height: 8),
           AllergySearchBox(
@@ -116,9 +116,9 @@ class _HouseholdPreferencesDetailScreenState extends State<HouseholdPreferencesD
           ),
           const SizedBox(height: 24),
           const Text('Household tastes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const Text(
+          Text(
             'Inherited once from the union of members\' tastes, then editable just for this household.',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
           ),
           const SizedBox(height: 8),
           TasteSearchBox(
