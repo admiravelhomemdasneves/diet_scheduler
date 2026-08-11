@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../models/recipe.dart';
 import '../models/taste.dart';
 import '../state/app_state.dart';
+import '../widgets/error_banner.dart';
 import '../widgets/unit_dropdown.dart';
 
 class _IngredientRow {
@@ -168,10 +169,7 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
             onPressed: _submitting ? null : _submit,
             child: _submitting ? const CircularProgressIndicator() : const Text('Create recipe'),
           ),
-          if (appState.errorMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(appState.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ],
+          ErrorBanner(message: appState.errorMessage),
         ],
       ),
     );

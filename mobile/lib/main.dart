@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -31,8 +33,42 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class RootScreen extends StatelessWidget {
+/// Wired once here, at the top of the widget tree, rather than per-screen: a StreamSubscription
+/// on AppState.errorStream lives for the whole app session and shows a SnackBar for every error
+/// event regardless of which of the app's ~28 screens happens to be visible when it fires. This
+/// is what makes error surfacing "free" for every screen, including the ones (Pantry, MealPlan,
+/// ShoppingList, Notification, Nutrition, most of Preferences) that previously read
+/// appState.errorMessage nowhere at all.
+class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
+
+  @override
+  State<RootScreen> createState() => _RootScreenState();
+}
+
+class _RootScreenState extends State<RootScreen> {
+  StreamSubscription<String>? _errorSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _errorSubscription = context.read<AppState>().errorStream.listen((message) {
+      final colorScheme = Theme.of(context).colorScheme;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message, style: TextStyle(color: colorScheme.onErrorContainer)),
+          backgroundColor: colorScheme.errorContainer,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _errorSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -75,10 +75,9 @@ class _CustomIngredientEditScreenState extends State<CustomIngredientEditScreen>
     if (ok) {
       Navigator.pop(context);
     } else {
+      // A failure here shows via the global error-stream listener at RootScreen, not a bespoke
+      // SnackBar -- createCustomIngredient/updateCustomIngredient still call _setError.
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(appState.errorMessage ?? 'Could not save ingredient.')),
-      );
     }
   }
 

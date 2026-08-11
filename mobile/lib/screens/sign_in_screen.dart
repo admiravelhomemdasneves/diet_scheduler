@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../widgets/error_banner.dart';
 
 class SignInScreen extends StatelessWidget {
   const SignInScreen({super.key});
@@ -26,10 +27,7 @@ class SignInScreen extends StatelessWidget {
                 icon: const Icon(Icons.login),
                 label: const Text('Sign in with Google'),
               ),
-              if (appState.errorMessage != null) ...[
-                const SizedBox(height: 16),
-                Text(appState.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              ],
+              ErrorBanner(message: appState.errorMessage),
             ],
           ),
         ),

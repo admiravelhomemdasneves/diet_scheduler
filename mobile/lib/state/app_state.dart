@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -59,6 +60,30 @@ class AppState extends ChangeNotifier {
   bool isLoading = true;
   String? errorMessage;
 
+  // errorMessage alone can't represent the same error occurring twice in a row (setting a field
+  // to a value it already holds doesn't produce a change), which is exactly why most screens
+  // never picked it up at all -- only the handful that explicitly read the field in their own
+  // build method saw it, and even those missed repeats. Every call to _setError below is instead
+  // an event on this broadcast stream, which RootScreen listens to once, globally, regardless of
+  // whether the message text repeats.
+  final _errorEvents = StreamController<String>.broadcast();
+  Stream<String> get errorStream => _errorEvents.stream;
+
+  @override
+  void dispose() {
+    _errorEvents.close();
+    super.dispose();
+  }
+
+  /// Records an error for both the legacy errorMessage field (still read inline by a handful of
+  /// screens) and the global error stream, then notifies listeners. Replaces what was previously
+  /// `errorMessage = '...'; notifyListeners();` repeated at every catch block in this file.
+  void _setError(String message) {
+    errorMessage = message;
+    _errorEvents.add(message);
+    notifyListeners();
+  }
+
   Future<void> bootstrap() async {
     try {
       token = await _secureStorage.read(key: _tokenKey);
@@ -92,8 +117,7 @@ class AppState extends ChangeNotifier {
       await _secureStorage.write(key: _tokenKey, value: token);
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Sign-in failed: $e';
-      notifyListeners();
+      _setError('Sign-in failed: $e');
     }
   }
 
@@ -123,8 +147,7 @@ class AppState extends ChangeNotifier {
       final json = await _api.post('/households', {'name': name}) as Map<String, dynamic>;
       await _loadHousehold((json['id'] as String), preloaded: Household.fromJson(json));
     } catch (e) {
-      errorMessage = 'Could not create household: $e';
-      notifyListeners();
+      _setError('Could not create household: $e');
     }
   }
 
@@ -134,8 +157,7 @@ class AppState extends ChangeNotifier {
       final json = await _api.post('/households/join/${inviteCode.trim().toUpperCase()}') as Map<String, dynamic>;
       await _loadHousehold((json['id'] as String), preloaded: Household.fromJson(json));
     } catch (e) {
-      errorMessage = 'Could not join household: $e';
-      notifyListeners();
+      _setError('Could not join household: $e');
     }
   }
 
@@ -145,8 +167,7 @@ class AppState extends ChangeNotifier {
       myHouseholds = json.map((j) => Household.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load your households: $e';
-      notifyListeners();
+      _setError('Could not load your households: $e');
     }
   }
 
@@ -164,8 +185,7 @@ class AppState extends ChangeNotifier {
     try {
       await _loadHousehold(householdId);
     } catch (e) {
-      errorMessage = 'Could not switch household: $e';
-      notifyListeners();
+      _setError('Could not switch household: $e');
     }
   }
 
@@ -186,8 +206,7 @@ class AppState extends ChangeNotifier {
       await _api.post('/households/$householdId/leave');
       await _handleHouseholdRemoved(householdId);
     } catch (e) {
-      errorMessage = 'Could not leave household: $e';
-      notifyListeners();
+      _setError('Could not leave household: $e');
     }
   }
 
@@ -198,8 +217,7 @@ class AppState extends ChangeNotifier {
       await _api.delete('/households/$householdId');
       await _handleHouseholdRemoved(householdId);
     } catch (e) {
-      errorMessage = 'Could not delete household: $e';
-      notifyListeners();
+      _setError('Could not delete household: $e');
     }
   }
 
@@ -365,8 +383,7 @@ class AppState extends ChangeNotifier {
       });
       // The item also arrives via the WebSocket broadcast; no local mutation needed here.
     } catch (e) {
-      errorMessage = 'Could not add item: $e';
-      notifyListeners();
+      _setError('Could not add item: $e');
     }
   }
 
@@ -401,8 +418,7 @@ class AppState extends ChangeNotifier {
       final json = await _api.post('/pantry/scan-barcode', {'barcode': barcode}) as Map<String, dynamic>;
       return Ingredient.fromJson(json);
     } catch (e) {
-      errorMessage = 'Barcode not recognized: $e';
-      notifyListeners();
+      _setError('Barcode not recognized: $e');
       return null;
     }
   }
@@ -414,8 +430,7 @@ class AppState extends ChangeNotifier {
       final json = await _api.get('/pantry/ingredients/$id') as Map<String, dynamic>;
       return Ingredient.fromJson(json);
     } catch (e) {
-      errorMessage = 'Could not load ingredient: $e';
-      notifyListeners();
+      _setError('Could not load ingredient: $e');
       return null;
     }
   }
@@ -460,8 +475,7 @@ class AppState extends ChangeNotifier {
         if (ingredientFatPer100g != null) 'ingredientFatPer100g': ingredientFatPer100g,
       });
     } catch (e) {
-      errorMessage = 'Could not update item: $e';
-      notifyListeners();
+      _setError('Could not update item: $e');
     }
   }
 
@@ -469,8 +483,7 @@ class AppState extends ChangeNotifier {
     try {
       await _api.delete('/pantry/$itemId');
     } catch (e) {
-      errorMessage = 'Could not delete item: $e';
-      notifyListeners();
+      _setError('Could not delete item: $e');
     }
   }
 
@@ -481,8 +494,7 @@ class AppState extends ChangeNotifier {
       customIngredients = json.map((j) => Ingredient.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load custom ingredients: $e';
-      notifyListeners();
+      _setError('Could not load custom ingredients: $e');
     }
   }
 
@@ -507,8 +519,7 @@ class AppState extends ChangeNotifier {
       await loadCustomIngredients();
       return true;
     } catch (e) {
-      errorMessage = 'Could not create ingredient: $e';
-      notifyListeners();
+      _setError('Could not create ingredient: $e');
       return false;
     }
   }
@@ -535,8 +546,7 @@ class AppState extends ChangeNotifier {
       await loadCustomIngredients();
       return true;
     } catch (e) {
-      errorMessage = 'Could not update ingredient: $e';
-      notifyListeners();
+      _setError('Could not update ingredient: $e');
       return false;
     }
   }
@@ -549,8 +559,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      errorMessage = 'Could not delete ingredient: $e';
-      notifyListeners();
+      _setError('Could not delete ingredient: $e');
       return false;
     }
   }
@@ -579,8 +588,7 @@ class AppState extends ChangeNotifier {
       recipes = json.map((j) => Recipe.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load recipes: $e';
-      notifyListeners();
+      _setError('Could not load recipes: $e');
     }
   }
 
@@ -619,8 +627,7 @@ class AppState extends ChangeNotifier {
       await loadRecipes();
       return created;
     } catch (e) {
-      errorMessage = 'Could not create recipe: $e';
-      notifyListeners();
+      _setError('Could not create recipe: $e');
       return null;
     }
   }
@@ -633,8 +640,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      errorMessage = 'Could not upload photo: $e';
-      notifyListeners();
+      _setError('Could not upload photo: $e');
       return false;
     }
   }
@@ -645,8 +651,7 @@ class AppState extends ChangeNotifier {
       recipes = recipes.where((r) => r.id != recipeId).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not delete recipe: $e';
-      notifyListeners();
+      _setError('Could not delete recipe: $e');
     }
   }
 
@@ -661,8 +666,7 @@ class AppState extends ChangeNotifier {
       externalRecipeResults = json.map((j) => ExternalRecipeSummary.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not search recipes: $e';
-      notifyListeners();
+      _setError('Could not search recipes: $e');
     }
   }
 
@@ -671,8 +675,7 @@ class AppState extends ChangeNotifier {
       final json = await _api.get('/recipes/$id') as Map<String, dynamic>;
       return Recipe.fromJson(json);
     } catch (e) {
-      errorMessage = 'Could not load recipe: $e';
-      notifyListeners();
+      _setError('Could not load recipe: $e');
       return null;
     }
   }
@@ -683,8 +686,7 @@ class AppState extends ChangeNotifier {
       final json = await _api.get('/external-recipes/$externalId') as Map<String, dynamic>;
       return ExternalRecipeDetail.fromJson(json);
     } catch (e) {
-      errorMessage = 'Could not load recipe details: $e';
-      notifyListeners();
+      _setError('Could not load recipe details: $e');
       return null;
     }
   }
@@ -700,8 +702,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      errorMessage = 'Could not save recipe: $e';
-      notifyListeners();
+      _setError('Could not save recipe: $e');
       return false;
     }
   }
@@ -718,8 +719,7 @@ class AppState extends ChangeNotifier {
       mealPlans = json.map((j) => MealPlan.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load meal plan: $e';
-      notifyListeners();
+      _setError('Could not load meal plan: $e');
     }
   }
 
@@ -741,8 +741,7 @@ class AppState extends ChangeNotifier {
       if (_isToday(date)) await refreshTodayNotifications();
       return true;
     } catch (e) {
-      errorMessage = 'Could not assign meal: $e';
-      notifyListeners();
+      _setError('Could not assign meal: $e');
       return false;
     }
   }
@@ -757,8 +756,7 @@ class AppState extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not remove meal: $e';
-      notifyListeners();
+      _setError('Could not remove meal: $e');
     }
   }
 
@@ -800,8 +798,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      errorMessage = 'Could not auto-generate schedule: $e';
-      notifyListeners();
+      _setError('Could not auto-generate schedule: $e');
       return false;
     }
   }
@@ -826,8 +823,7 @@ class AppState extends ChangeNotifier {
       mealPlans = mealPlans.map((m) => m.id == updated.id ? updated : m).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not mark cooked: $e';
-      notifyListeners();
+      _setError('Could not mark cooked: $e');
     }
   }
 
@@ -840,8 +836,7 @@ class AppState extends ChangeNotifier {
       shoppingList = json.map((j) => ShoppingListItem.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load shopping list: $e';
-      notifyListeners();
+      _setError('Could not load shopping list: $e');
     }
   }
 
@@ -853,8 +848,7 @@ class AppState extends ChangeNotifier {
       shoppingList = json.map((j) => ShoppingListItem.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not generate shopping list: $e';
-      notifyListeners();
+      _setError('Could not generate shopping list: $e');
     }
   }
 
@@ -867,8 +861,7 @@ class AppState extends ChangeNotifier {
         'unit': unit,
       });
     } catch (e) {
-      errorMessage = 'Could not add item: $e';
-      notifyListeners();
+      _setError('Could not add item: $e');
     }
   }
 
@@ -876,8 +869,7 @@ class AppState extends ChangeNotifier {
     try {
       await _api.patch('/shopping-list/$itemId', {'checked': checked});
     } catch (e) {
-      errorMessage = 'Could not update item: $e';
-      notifyListeners();
+      _setError('Could not update item: $e');
     }
   }
 
@@ -887,8 +879,7 @@ class AppState extends ChangeNotifier {
       shoppingList = shoppingList.where((i) => i.id != itemId).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not remove item: $e';
-      notifyListeners();
+      _setError('Could not remove item: $e');
     }
   }
 
@@ -903,8 +894,7 @@ class AppState extends ChangeNotifier {
       shoppingListLookaheadDays = json['missingIngredientsLookaheadDays'] as int;
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load shopping preferences: $e';
-      notifyListeners();
+      _setError('Could not load shopping preferences: $e');
     }
   }
 
@@ -914,8 +904,7 @@ class AppState extends ChangeNotifier {
       shoppingListLookaheadDays = json['missingIngredientsLookaheadDays'] as int;
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not save shopping preferences: $e';
-      notifyListeners();
+      _setError('Could not save shopping preferences: $e');
     }
   }
 
@@ -927,8 +916,7 @@ class AppState extends ChangeNotifier {
       missingIngredients = json.map((j) => MissingIngredient.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load missing ingredients: $e';
-      notifyListeners();
+      _setError('Could not load missing ingredients: $e');
     }
   }
 
@@ -948,8 +936,7 @@ class AppState extends ChangeNotifier {
       });
     } catch (e) {
       missingIngredients = [...missingIngredients, ...removed];
-      errorMessage = 'Could not ignore ingredient(s): $e';
-      notifyListeners();
+      _setError('Could not ignore ingredient(s): $e');
     }
   }
 
@@ -967,8 +954,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       missingIngredients = [...missingIngredients, ...removed];
-      errorMessage = 'Could not add ingredient(s) to shopping list: $e';
-      notifyListeners();
+      _setError('Could not add ingredient(s) to shopping list: $e');
     }
   }
 
@@ -980,8 +966,7 @@ class AppState extends ChangeNotifier {
       notificationSettings = NotificationSetting.fromJson(json);
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load notification settings: $e';
-      notifyListeners();
+      _setError('Could not load notification settings: $e');
     }
   }
 
@@ -1009,8 +994,7 @@ class AppState extends ChangeNotifier {
       await refreshTodayNotifications();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not save notification settings: $e';
-      notifyListeners();
+      _setError('Could not save notification settings: $e');
     }
   }
 
@@ -1097,8 +1081,7 @@ class AppState extends ChangeNotifier {
       nutritionProfile = NutritionProfile.fromJson(json);
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load nutrition profile: $e';
-      notifyListeners();
+      _setError('Could not load nutrition profile: $e');
     }
   }
 
@@ -1128,8 +1111,7 @@ class AppState extends ChangeNotifier {
       nutritionProfile = NutritionProfile.fromJson(json);
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not save nutrition profile: $e';
-      notifyListeners();
+      _setError('Could not save nutrition profile: $e');
     }
   }
 
@@ -1141,8 +1123,7 @@ class AppState extends ChangeNotifier {
       unitSystem = json['unitSystem'] as String;
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load unit system preference: $e';
-      notifyListeners();
+      _setError('Could not load unit system preference: $e');
     }
   }
 
@@ -1152,8 +1133,7 @@ class AppState extends ChangeNotifier {
       unitSystem = json['unitSystem'] as String;
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not save unit system preference: $e';
-      notifyListeners();
+      _setError('Could not save unit system preference: $e');
     }
   }
 
@@ -1167,8 +1147,7 @@ class AppState extends ChangeNotifier {
       allTastes = tasteJson.map((j) => Taste.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load reference data: $e';
-      notifyListeners();
+      _setError('Could not load reference data: $e');
     }
   }
 
@@ -1180,8 +1159,7 @@ class AppState extends ChangeNotifier {
       myTastes = tasteJson.map((j) => TastePreferenceEntry.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load your preferences: $e';
-      notifyListeners();
+      _setError('Could not load your preferences: $e');
     }
   }
 
@@ -1190,8 +1168,7 @@ class AppState extends ChangeNotifier {
       await _api.put('/users/me/allergies/$allergyId');
       await loadMyPreferences();
     } catch (e) {
-      errorMessage = 'Could not add allergy: $e';
-      notifyListeners();
+      _setError('Could not add allergy: $e');
     }
   }
 
@@ -1200,8 +1177,7 @@ class AppState extends ChangeNotifier {
       await _api.delete('/users/me/allergies/$allergyId');
       await loadMyPreferences();
     } catch (e) {
-      errorMessage = 'Could not remove allergy: $e';
-      notifyListeners();
+      _setError('Could not remove allergy: $e');
     }
   }
 
@@ -1210,8 +1186,7 @@ class AppState extends ChangeNotifier {
       await _api.put('/users/me/tastes/$tasteId', {'preference': preference});
       await loadMyPreferences();
     } catch (e) {
-      errorMessage = 'Could not set taste preference: $e';
-      notifyListeners();
+      _setError('Could not set taste preference: $e');
     }
   }
 
@@ -1220,8 +1195,7 @@ class AppState extends ChangeNotifier {
       await _api.delete('/users/me/tastes/$tasteId');
       await loadMyPreferences();
     } catch (e) {
-      errorMessage = 'Could not remove taste preference: $e';
-      notifyListeners();
+      _setError('Could not remove taste preference: $e');
     }
   }
 
@@ -1231,8 +1205,7 @@ class AppState extends ChangeNotifier {
       householdTastes = json.map((j) => TastePreferenceEntry.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load household preferences: $e';
-      notifyListeners();
+      _setError('Could not load household preferences: $e');
     }
   }
 
@@ -1241,8 +1214,7 @@ class AppState extends ChangeNotifier {
       await _api.put('/households/$householdId/tastes/$tasteId', {'preference': preference});
       await loadHouseholdTastes(householdId);
     } catch (e) {
-      errorMessage = 'Could not set household taste preference: $e';
-      notifyListeners();
+      _setError('Could not set household taste preference: $e');
     }
   }
 
@@ -1251,8 +1223,7 @@ class AppState extends ChangeNotifier {
       await _api.delete('/households/$householdId/tastes/$tasteId');
       await loadHouseholdTastes(householdId);
     } catch (e) {
-      errorMessage = 'Could not remove household taste preference: $e';
-      notifyListeners();
+      _setError('Could not remove household taste preference: $e');
     }
   }
 
@@ -1262,8 +1233,7 @@ class AppState extends ChangeNotifier {
       householdAllergies = json.map((j) => Allergy.fromJson(j as Map<String, dynamic>)).toList();
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Could not load household allergies: $e';
-      notifyListeners();
+      _setError('Could not load household allergies: $e');
     }
   }
 
@@ -1272,8 +1242,7 @@ class AppState extends ChangeNotifier {
       await _api.put('/households/$householdId/allergies/$allergyId');
       await loadHouseholdAllergies(householdId);
     } catch (e) {
-      errorMessage = 'Could not add household allergy: $e';
-      notifyListeners();
+      _setError('Could not add household allergy: $e');
     }
   }
 
@@ -1282,8 +1251,7 @@ class AppState extends ChangeNotifier {
       await _api.delete('/households/$householdId/allergies/$allergyId');
       await loadHouseholdAllergies(householdId);
     } catch (e) {
-      errorMessage = 'Could not remove household allergy: $e';
-      notifyListeners();
+      _setError('Could not remove household allergy: $e');
     }
   }
 }

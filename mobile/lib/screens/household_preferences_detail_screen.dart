@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/household.dart';
 import '../state/app_state.dart';
 import '../widgets/allergy_search_box.dart';
+import '../widgets/error_banner.dart';
 import '../widgets/taste_search_box.dart';
 import 'allergy_list_screen.dart';
 import 'taste_list_screen.dart';
@@ -153,10 +154,7 @@ class _HouseholdPreferencesDetailScreenState extends State<HouseholdPreferencesD
               onPressed: _busy ? null : () => _confirmDelete(context),
             ),
           ],
-          if (appState.errorMessage != null) ...[
-            const SizedBox(height: 16),
-            Text(appState.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ],
+          ErrorBanner(message: appState.errorMessage),
         ],
       ),
     );

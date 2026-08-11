@@ -55,14 +55,9 @@ class _CustomIngredientsScreenState extends State<CustomIngredientsScreen> {
                     ),
                     direction: DismissDirection.endToStart,
                     confirmDismiss: (_) async {
-                      final appState = context.read<AppState>();
-                      final ok = await appState.deleteCustomIngredient(ingredient.id);
-                      if (!ok && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(appState.errorMessage ?? 'Could not delete ingredient.')),
-                        );
-                      }
-                      return ok;
+                      // A failure here shows via the global error-stream listener at RootScreen,
+                      // not a bespoke SnackBar -- deleteCustomIngredient still calls _setError.
+                      return context.read<AppState>().deleteCustomIngredient(ingredient.id);
                     },
                     onDismissed: (_) {},
                     child: ListTile(

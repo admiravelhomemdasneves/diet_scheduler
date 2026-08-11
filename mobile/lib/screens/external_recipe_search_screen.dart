@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/external_recipe.dart';
 import '../state/app_state.dart';
+import '../widgets/error_banner.dart';
 import 'external_recipe_detail_screen.dart';
 import 'recipes_screen.dart';
 
@@ -98,7 +99,7 @@ class _ExternalRecipeSearchScreenState extends State<ExternalRecipeSearchScreen>
             child: _gridView ? _buildGrid(appState) : _buildList(appState),
           ),
           if (appState.errorMessage != null)
-            Padding(padding: const EdgeInsets.all(12), child: Text(appState.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+            Padding(padding: const EdgeInsets.all(12), child: ErrorBanner(message: appState.errorMessage)),
         ],
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../widgets/error_banner.dart';
 
 class HouseholdScreen extends StatefulWidget {
   const HouseholdScreen({super.key});
@@ -79,10 +80,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
             const SizedBox(height: 24),
             const Center(child: CircularProgressIndicator()),
           ],
-          if (appState.errorMessage != null) ...[
-            const SizedBox(height: 16),
-            Text(appState.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ],
+          ErrorBanner(message: appState.errorMessage),
         ],
       ),
     );

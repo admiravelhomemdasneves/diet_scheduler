@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/household.dart';
 import '../state/app_state.dart';
+import '../widgets/error_banner.dart';
 
 class HouseholdSwitcherScreen extends StatefulWidget {
   const HouseholdSwitcherScreen({super.key});
@@ -117,10 +118,7 @@ class _HouseholdSwitcherScreenState extends State<HouseholdSwitcherScreen> {
             const SizedBox(height: 24),
             const Center(child: CircularProgressIndicator()),
           ],
-          if (appState.errorMessage != null) ...[
-            const SizedBox(height: 16),
-            Text(appState.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ],
+          ErrorBanner(message: appState.errorMessage),
         ],
       ),
     );
