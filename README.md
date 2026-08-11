@@ -1,5 +1,7 @@
 # DietScheduler
 
+[![CI](https://github.com/admiravelhomemdasneves/diet_scheduler/actions/workflows/ci.yml/badge.svg)](https://github.com/admiravelhomemdasneves/diet_scheduler/actions/workflows/ci.yml)
+
 A household meal-planning app: shared pantry inventory, recipes, a meal-plan calendar, an
 auto-generated shopping list, and nutrition tracking — built for a household to coordinate on
 together in real time.
@@ -122,11 +124,23 @@ addition to the client ID above — Google Sign-In authorizes the Android app by
 signing certificate, not just the client ID. A release build signed with a different key than
 whatever's currently registered will fail to sign in until you add its SHA-1.
 
+## Running tests
+
+```bash
+cd backend && mvn -B verify   # self-contained -- runs against an in-memory H2 DB, no Docker needed
+cd mobile && flutter test
+```
+
+Both also run in CI (`.github/workflows/ci.yml`) on every push and pull request, alongside
+`flutter analyze` and a guard against raw `Colors.*` literals creeping in outside `lib/theme/`.
+
 ## Repository layout
 
 ```
-backend/    Spring Boot API (Maven)
-mobile/     Flutter client
+backend/            Spring Boot API (Maven)
+mobile/              Flutter client
+tool/branding/       Reproducible launcher-icon/splash asset generator (PowerShell + System.Drawing)
+.github/workflows/   CI (backend tests, mobile analyze/test, color-lint, gitleaks)
 docker-compose.yml
 .env.example
 ```
