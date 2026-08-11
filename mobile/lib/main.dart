@@ -53,6 +53,7 @@ class _RootScreenState extends State<RootScreen> {
   void initState() {
     super.initState();
     _errorSubscription = context.read<AppState>().errorStream.listen((message) {
+      if (!mounted) return;
       final colorScheme = Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

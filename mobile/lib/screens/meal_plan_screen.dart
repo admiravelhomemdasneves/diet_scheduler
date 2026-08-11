@@ -36,7 +36,7 @@ MealMarkerStyle mealMarkerStyle(BuildContext context, bool hasMeals) {
 class MealMarkerLegendSwatch extends StatelessWidget {
   final bool hasMeals;
   final String label;
-  const MealMarkerLegendSwatch({required this.hasMeals, required this.label});
+  const MealMarkerLegendSwatch({super.key, required this.hasMeals, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -242,9 +242,9 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const MealMarkerLegendSwatch(hasMeals: true, label: 'Meals planned'),
-              const SizedBox(width: 16),
-              const MealMarkerLegendSwatch(hasMeals: false, label: 'No meals planned'),
+              MealMarkerLegendSwatch(hasMeals: true, label: 'Meals planned'),
+              SizedBox(width: 16),
+              MealMarkerLegendSwatch(hasMeals: false, label: 'No meals planned'),
             ],
           ),
         ),

@@ -26,7 +26,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     final appState = context.watch<AppState>();
     if (!_loaded) {
       _loaded = true;
-      Future.microtask(() => context.read<AppState>().loadNotificationSettings());
+      Future.microtask(() {
+        if (context.mounted) context.read<AppState>().loadNotificationSettings();
+      });
     }
     _maybePopulate(appState.notificationSettings);
 

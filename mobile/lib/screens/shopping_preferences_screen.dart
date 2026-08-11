@@ -22,6 +22,7 @@ class _ShoppingPreferencesScreenState extends State<ShoppingPreferencesScreen> {
     if (!_loaded) {
       _loaded = true;
       Future.microtask(() {
+        if (!context.mounted) return;
         context.read<AppState>().loadUnitSystem();
         context.read<AppState>().loadShoppingPreferences();
       });

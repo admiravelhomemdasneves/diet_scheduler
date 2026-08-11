@@ -51,6 +51,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           await context.read<AppState>().loadShoppingList();
+          if (!context.mounted) return;
           await context.read<AppState>().loadMissingIngredients();
         },
         child: ListView(

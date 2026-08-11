@@ -28,7 +28,9 @@ class _NutritionProfileScreenState extends State<NutritionProfileScreen> {
     final appState = context.watch<AppState>();
     if (!_loaded) {
       _loaded = true;
-      Future.microtask(() => context.read<AppState>().loadNutritionProfile());
+      Future.microtask(() {
+        if (context.mounted) context.read<AppState>().loadNutritionProfile();
+      });
     }
     _maybePopulate(appState.nutritionProfile);
 

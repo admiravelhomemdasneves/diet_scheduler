@@ -122,7 +122,7 @@ class _DayMealPlanScreenState extends State<DayMealPlanScreen> {
       targetNutrition: options.targetNutrition,
       regenerate: options.regenerate,
     );
-    if (!mounted) return;
+    if (!context.mounted) return;
     setState(() {
       _generating = false;
       _selectedMealTypes.clear();

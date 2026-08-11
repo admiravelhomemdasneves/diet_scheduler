@@ -21,7 +21,9 @@ class _HouseholdPreferencesListScreenState extends State<HouseholdPreferencesLis
     final appState = context.watch<AppState>();
     if (!_loaded) {
       _loaded = true;
-      Future.microtask(() => context.read<AppState>().loadMyHouseholds());
+      Future.microtask(() {
+        if (context.mounted) context.read<AppState>().loadMyHouseholds();
+      });
     }
     final activeId = appState.currentHousehold?.id;
 
@@ -83,7 +85,7 @@ class _HouseholdPreferencesListScreenState extends State<HouseholdPreferencesLis
         ],
       ),
     );
-    if (name == null || name.isEmpty || !mounted) return;
+    if (name == null || name.isEmpty || !context.mounted) return;
     setState(() => _creating = true);
     final appState = context.read<AppState>();
     await appState.createHousehold(name);

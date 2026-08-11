@@ -184,11 +184,11 @@ class _HouseholdPreferencesDetailScreenState extends State<HouseholdPreferencesD
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !context.mounted) return;
     setState(() => _busy = true);
     final appState = context.read<AppState>();
     await appState.leaveHousehold(widget.household.id);
-    if (!mounted) return;
+    if (!context.mounted) return;
     setState(() => _busy = false);
     if (appState.errorMessage == null) Navigator.of(context).pop();
   }
@@ -210,11 +210,11 @@ class _HouseholdPreferencesDetailScreenState extends State<HouseholdPreferencesD
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !context.mounted) return;
     setState(() => _busy = true);
     final appState = context.read<AppState>();
     await appState.deleteHousehold(widget.household.id);
-    if (!mounted) return;
+    if (!context.mounted) return;
     setState(() => _busy = false);
     if (appState.errorMessage == null) Navigator.of(context).pop();
   }

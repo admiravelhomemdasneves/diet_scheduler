@@ -367,19 +367,19 @@ class AppState extends ChangeNotifier {
     if (currentHousehold == null) return;
     try {
       await _api.post('/households/${currentHousehold!.id}/pantry', {
-        if (ingredientId != null) 'ingredientId': ingredientId,
-        if (ingredientName != null) 'ingredientName': ingredientName,
-        if (ingredientBarcode != null) 'ingredientBarcode': ingredientBarcode,
-        if (ingredientImageUrl != null) 'ingredientImageUrl': ingredientImageUrl,
-        if (ingredientCategory != null) 'ingredientCategory': ingredientCategory,
-        if (ingredientCaloriesPer100g != null) 'ingredientCaloriesPer100g': ingredientCaloriesPer100g,
-        if (ingredientProteinPer100g != null) 'ingredientProteinPer100g': ingredientProteinPer100g,
-        if (ingredientCarbsPer100g != null) 'ingredientCarbsPer100g': ingredientCarbsPer100g,
-        if (ingredientFatPer100g != null) 'ingredientFatPer100g': ingredientFatPer100g,
+        'ingredientId': ?ingredientId,
+        'ingredientName': ?ingredientName,
+        'ingredientBarcode': ?ingredientBarcode,
+        'ingredientImageUrl': ?ingredientImageUrl,
+        'ingredientCategory': ?ingredientCategory,
+        'ingredientCaloriesPer100g': ?ingredientCaloriesPer100g,
+        'ingredientProteinPer100g': ?ingredientProteinPer100g,
+        'ingredientCarbsPer100g': ?ingredientCarbsPer100g,
+        'ingredientFatPer100g': ?ingredientFatPer100g,
         'location': location,
         'quantity': quantity,
         'unit': unit,
-        if (expirationDate != null) 'expirationDate': expirationDate,
+        'expirationDate': ?expirationDate,
       });
       // The item also arrives via the WebSocket broadcast; no local mutation needed here.
     } catch (e) {
@@ -464,15 +464,15 @@ class AppState extends ChangeNotifier {
   }) async {
     try {
       await _api.patch('/pantry/${item.id}', {
-        if (location != null) 'location': location,
-        if (quantity != null) 'quantity': quantity,
-        if (unit != null) 'unit': unit,
-        if (ingredientName != null) 'ingredientName': ingredientName,
-        if (ingredientImageUrl != null) 'ingredientImageUrl': ingredientImageUrl,
-        if (ingredientCaloriesPer100g != null) 'ingredientCaloriesPer100g': ingredientCaloriesPer100g,
-        if (ingredientProteinPer100g != null) 'ingredientProteinPer100g': ingredientProteinPer100g,
-        if (ingredientCarbsPer100g != null) 'ingredientCarbsPer100g': ingredientCarbsPer100g,
-        if (ingredientFatPer100g != null) 'ingredientFatPer100g': ingredientFatPer100g,
+        'location': ?location,
+        'quantity': ?quantity,
+        'unit': ?unit,
+        'ingredientName': ?ingredientName,
+        'ingredientImageUrl': ?ingredientImageUrl,
+        'ingredientCaloriesPer100g': ?ingredientCaloriesPer100g,
+        'ingredientProteinPer100g': ?ingredientProteinPer100g,
+        'ingredientCarbsPer100g': ?ingredientCarbsPer100g,
+        'ingredientFatPer100g': ?ingredientFatPer100g,
       });
     } catch (e) {
       _setError('Could not update item: $e');
@@ -510,11 +510,11 @@ class AppState extends ChangeNotifier {
     try {
       await _api.post('/households/${currentHousehold!.id}/custom-ingredients', {
         'name': name,
-        if (imageUrl != null) 'imageUrl': imageUrl,
-        if (caloriesPer100g != null) 'caloriesPer100g': caloriesPer100g,
-        if (proteinPer100g != null) 'proteinPer100g': proteinPer100g,
-        if (carbsPer100g != null) 'carbsPer100g': carbsPer100g,
-        if (fatPer100g != null) 'fatPer100g': fatPer100g,
+        'imageUrl': ?imageUrl,
+        'caloriesPer100g': ?caloriesPer100g,
+        'proteinPer100g': ?proteinPer100g,
+        'carbsPer100g': ?carbsPer100g,
+        'fatPer100g': ?fatPer100g,
       });
       await loadCustomIngredients();
       return true;
@@ -537,11 +537,11 @@ class AppState extends ChangeNotifier {
     try {
       await _api.patch('/households/${currentHousehold!.id}/custom-ingredients/$id', {
         'name': name,
-        if (imageUrl != null) 'imageUrl': imageUrl,
-        if (caloriesPer100g != null) 'caloriesPer100g': caloriesPer100g,
-        if (proteinPer100g != null) 'proteinPer100g': proteinPer100g,
-        if (carbsPer100g != null) 'carbsPer100g': carbsPer100g,
-        if (fatPer100g != null) 'fatPer100g': fatPer100g,
+        'imageUrl': ?imageUrl,
+        'caloriesPer100g': ?caloriesPer100g,
+        'proteinPer100g': ?proteinPer100g,
+        'carbsPer100g': ?carbsPer100g,
+        'fatPer100g': ?fatPer100g,
       });
       await loadCustomIngredients();
       return true;
@@ -611,14 +611,14 @@ class AppState extends ChangeNotifier {
       final json = await _api.post('/recipes', {
         'name': name,
         'category': category,
-        if (instructions != null) 'instructions': instructions,
+        'instructions': ?instructions,
         'servings': servings,
-        if (prepTimeMinutes != null) 'prepTimeMinutes': prepTimeMinutes,
-        if (cookTimeMinutes != null) 'cookTimeMinutes': cookTimeMinutes,
-        if (caloriesPerServing != null) 'caloriesPerServing': caloriesPerServing,
-        if (proteinPerServing != null) 'proteinPerServing': proteinPerServing,
-        if (carbsPerServing != null) 'carbsPerServing': carbsPerServing,
-        if (fatPerServing != null) 'fatPerServing': fatPerServing,
+        'prepTimeMinutes': ?prepTimeMinutes,
+        'cookTimeMinutes': ?cookTimeMinutes,
+        'caloriesPerServing': ?caloriesPerServing,
+        'proteinPerServing': ?proteinPerServing,
+        'carbsPerServing': ?carbsPerServing,
+        'fatPerServing': ?fatPerServing,
         'isPrivate': isPrivate,
         'ingredients': ingredients,
         'tags': tags,
@@ -735,7 +735,7 @@ class AppState extends ChangeNotifier {
         'date': _formatDate(date),
         'mealType': mealType,
         'recipeId': recipeId,
-        if (portions != null) 'portions': portions,
+        'portions': ?portions,
       });
       // Also arrives via the WebSocket broadcast, but that's not guaranteed to have landed yet by the time we return.
       if (_isToday(date)) await refreshTodayNotifications();
@@ -981,13 +981,13 @@ class AppState extends ChangeNotifier {
   }) async {
     try {
       final json = await _api.patch('/users/me/notification-settings', {
-        if (lunchTime != null) 'lunchTime': lunchTime,
-        if (dinnerTime != null) 'dinnerTime': dinnerTime,
-        if (snackTime != null) 'snackTime': snackTime,
-        if (dailyMealReminderEnabled != null) 'dailyMealReminderEnabled': dailyMealReminderEnabled,
-        if (startCookingReminderEnabled != null) 'startCookingReminderEnabled': startCookingReminderEnabled,
-        if (lowStockAlertEnabled != null) 'lowStockAlertEnabled': lowStockAlertEnabled,
-        if (lowStockThreshold != null) 'lowStockThreshold': lowStockThreshold,
+        'lunchTime': ?lunchTime,
+        'dinnerTime': ?dinnerTime,
+        'snackTime': ?snackTime,
+        'dailyMealReminderEnabled': ?dailyMealReminderEnabled,
+        'startCookingReminderEnabled': ?startCookingReminderEnabled,
+        'lowStockAlertEnabled': ?lowStockAlertEnabled,
+        'lowStockThreshold': ?lowStockThreshold,
       }) as Map<String, dynamic>;
       notificationSettings = NotificationSetting.fromJson(json);
       _lowStockNotifiedItemIds.clear(); // threshold/toggle may have changed; let items re-qualify
@@ -1098,15 +1098,15 @@ class AppState extends ChangeNotifier {
   }) async {
     try {
       final json = await _api.patch('/users/me/nutrition-profile', {
-        if (gender != null) 'gender': gender,
-        if (age != null) 'age': age,
-        if (weight != null) 'weight': weight,
-        if (height != null) 'height': height,
-        if (calorieTarget != null) 'calorieTarget': calorieTarget,
-        if (proteinTargetGrams != null) 'proteinTargetGrams': proteinTargetGrams,
-        if (carbsTargetGrams != null) 'carbsTargetGrams': carbsTargetGrams,
-        if (fatTargetGrams != null) 'fatTargetGrams': fatTargetGrams,
-        if (weightGoalKg != null) 'weightGoalKg': weightGoalKg,
+        'gender': ?gender,
+        'age': ?age,
+        'weight': ?weight,
+        'height': ?height,
+        'calorieTarget': ?calorieTarget,
+        'proteinTargetGrams': ?proteinTargetGrams,
+        'carbsTargetGrams': ?carbsTargetGrams,
+        'fatTargetGrams': ?fatTargetGrams,
+        'weightGoalKg': ?weightGoalKg,
       }) as Map<String, dynamic>;
       nutritionProfile = NutritionProfile.fromJson(json);
       notifyListeners();

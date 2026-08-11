@@ -21,7 +21,9 @@ class _CustomIngredientsScreenState extends State<CustomIngredientsScreen> {
     final appState = context.watch<AppState>();
     if (!_loaded) {
       _loaded = true;
-      Future.microtask(() => context.read<AppState>().loadCustomIngredients());
+      Future.microtask(() {
+        if (context.mounted) context.read<AppState>().loadCustomIngredients();
+      });
     }
 
     return Scaffold(
